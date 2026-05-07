@@ -28,8 +28,8 @@ export const DEFAULT_DRONE_TURN_RATE = 45 * Math.PI / 180;
 export const DEFAULT_ANTI_TURN_RATE  = 90 * Math.PI / 180;
 
 // Physics response times (s) — how fast velocity tracks the target
-export const DRONE_RESPONSE_TIME = 0.35;  // s
-export const ANTI_RESPONSE_TIME  = 0.18;  // s
+export const DRONE_RESPONSE_TIME = 0.55;  // s  (15 kg, sluggish)
+export const ANTI_RESPONSE_TIME  = 0.10;  // s  (0.5 kg, very snappy)
 export const DRONE_MAX_VZ  = 12;   // m/s  vertical speed limit
 export const ANTI_MAX_VZ   = 20;   // m/s
 
@@ -45,8 +45,8 @@ export const MAX_ANTIDRONES = 15;
 export const DEFAULT_PARAMS = Object.freeze({
   dspeed:  200,   // km/h
   aspeed:  350,   // km/h
-  dmass:   2.5,   // kg
-  amass:   3.0,   // kg
+  dmass:   15,    // kg  heavy strike drone
+  amass:   0.5,   // kg  tiny agile interceptor
   camrange: 900,  // m   ground camera range
   arange:  650,   // m   antidrone camera range
   ndrones:   5,

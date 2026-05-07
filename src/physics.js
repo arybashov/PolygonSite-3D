@@ -13,9 +13,10 @@ import { angleDiff, clamp } from './math.js';
 
 export const GRAVITY = 9.81;  // m/s²
 
-// dragCoef such that at maxSpeed, drag force = maxThrust → natural cruise equilibrium
+// dragCoef so that at maxSpeed: drag = horizontal thrust (0.80 * maxThrust) → equilibrium
+// Without the 0.80 factor, cruise speed would settle at sqrt(0.80) * maxSpeed ≈ 89% of spec.
 export function dragCoefForSpeed(maxThrust, maxSpeed) {
-  return maxSpeed > 0 ? maxThrust / (maxSpeed * maxSpeed) : 0;
+  return maxSpeed > 0 ? 0.80 * maxThrust / (maxSpeed * maxSpeed) : 0;
 }
 
 // Core physics step. Modifies agent in place.
