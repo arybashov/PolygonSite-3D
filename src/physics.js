@@ -61,26 +61,36 @@ export function applyPhysics(agent, targetVx, targetVy, targetVz, dt) {
 
 // Navigate toward a 3D waypoint: update agent.angle (yaw) then call applyPhysics.
 // Returns horizontal distance to target.
+//
+// Turn model: effective yaw rate = min(agent.yawRate, maxAccH / currentSpeed)
+//   — at low speed: actuator-limited (can spin nearly in place if no stallSpeed)
+//   — at cruise:    centripetal-limited, gives realistic turn radius v²/maxAccH
+// Thrust is always in the yaw direction (nose-pointed thrust).
 export function navigateToPoint(agent, tx, ty, tz, speed, dt, fieldSize = 0) {
   const dx    = tx - agent.x;
   const dy    = ty - agent.y;
   const distH = Math.hypot(dx, dy);
 
-  // Yaw toward horizontal target
+  // Velocity-dependent yaw rate: min(actuator limit, centripetal physics limit)
+  const currentSpeed = Math.hypot(agent.vx, agent.vy);
+  const maxAccH      = agent.maxThrust * 0.80 / agent.mass;
+  const physicsYawRate = currentSpeed > 0.5 ? maxAccH / currentSpeed : agent.yawRate;
+  const effectiveYawRate = Math.min(agent.yawRate, physicsYawRate);
+
   const desiredYaw = Math.atan2(dy, dx);
   const yawDiff    = angleDiff(agent.angle, desiredYaw);
-  const maxYaw     = agent.yawRate * dt;
-  agent.angle += clamp(yawDiff, -maxYaw, maxYaw);
+  agent.angle += clamp(yawDiff, -effectiveYawRate * dt, effectiveYawRate * dt);
 
-  // Speed: reduce when turning or near stop-distance, but never below stall speed
+  // Speed: never below stall speed; reduce when strongly misaligned
   const stallSpeed   = agent.stallSpeed ?? 0;
-  const alignFactor  = Math.max(0.25, Math.cos(yawDiff));
+  const alignFactor  = Math.max(0.3, Math.cos(yawDiff));
   const stopDist     = speed * agent.responseTime * 2.5;
   const speedFactor  = Math.min(1, distH / (stopDist + 1));
   const desiredSpeed = Math.max(stallSpeed, speed * alignFactor * speedFactor);
 
-  const targetVx = distH > 0.1 ? (dx / distH) * desiredSpeed : 0;
-  const targetVy = distH > 0.1 ? (dy / distH) * desiredSpeed : 0;
+  // Thrust along yaw direction (nose-pointed), not raw target vector
+  const targetVx = Math.cos(agent.angle) * desiredSpeed;
+  const targetVy = Math.sin(agent.angle) * desiredSpeed;
 
   // Altitude proportional control
   const targetVz = clamp((tz - agent.z) * 3.0, -agent.maxVz, agent.maxVz);
