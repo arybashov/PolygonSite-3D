@@ -186,14 +186,17 @@ export class Simulation {
   // ── Agent factories ──────────────────────────────────────────────────────
 
   makeDrone(id, spawn, target, targetIdx) {
-    const maxSpeed = this.getParam('dspeed') / 3.6;
-    const mass     = this.getParam('dmass');
-    const maxThrust = mass * 9.81 * 1.6;  // thrust-to-weight ~1.6
+    const maxSpeed  = this.getParam('dspeed') / 3.6;
+    const mass      = this.getParam('dmass');
+    const maxThrust = mass * 9.81 * 1.6;
+    const angle0    = Math.atan2(target.y - spawn.y, target.x - spawn.x);
     return {
       id,
       x: spawn.x, y: spawn.y, z: CRUISE_ALT,
-      vx: 0,      vy: 0,      vz: 0,
-      angle: Math.atan2(FIELD_SIZE / 2 - spawn.y, FIELD_SIZE / 2 - spawn.x),
+      vx: Math.cos(angle0) * maxSpeed,
+      vy: Math.sin(angle0) * maxSpeed,
+      vz: 0,
+      angle: angle0,
       tx: target.x,  ty: target.y,  tz: CRUISE_ALT,
       rtx: target.x, rty: target.y, rtz: CRUISE_ALT,
       targetIdx,
