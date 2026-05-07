@@ -81,12 +81,15 @@ export function navigateToPoint(agent, tx, ty, tz, speed, dt, fieldSize = 0) {
   const yawDiff    = angleDiff(agent.angle, desiredYaw);
   agent.angle += clamp(yawDiff, -effectiveYawRate * dt, effectiveYawRate * dt);
 
-  // Speed: never below stall speed; reduce when strongly misaligned
-  const stallSpeed   = agent.stallSpeed ?? 0;
-  const alignFactor  = Math.max(0.3, Math.cos(yawDiff));
-  const stopDist     = speed * agent.responseTime * 2.5;
-  const speedFactor  = Math.min(1, distH / (stopDist + 1));
-  const desiredSpeed = Math.max(stallSpeed, speed * alignFactor * speedFactor);
+  // Speed: reduce when misaligned, never below stall speed.
+  // (1+cos)/2 = cos²(yaw/2): smooth, aggressive near 90-180° — forces tight turns.
+  // minSpeedFactor: drone=0.30 (floor before stallSpeed kicks in), anti=0.05 (can near-hover)
+  const stallSpeed      = agent.stallSpeed ?? 0;
+  const minSpeedFactor  = agent.minSpeedFactor ?? 0.30;
+  const alignFactor     = Math.max(minSpeedFactor, (1 + Math.cos(yawDiff)) / 2);
+  const stopDist        = speed * agent.responseTime * 2.5;
+  const speedFactor     = Math.min(1, distH / (stopDist + 1));
+  const desiredSpeed    = Math.max(stallSpeed, speed * alignFactor * speedFactor);
 
   // Thrust along yaw direction (nose-pointed), not raw target vector
   const targetVx = Math.cos(agent.angle) * desiredSpeed;

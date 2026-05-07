@@ -220,7 +220,8 @@ export class Simulation {
       responseTime: DRONE_RESPONSE_TIME,
       maxVz:        DRONE_MAX_VZ,
       yawRate:      DEFAULT_DRONE_TURN_RATE,
-      stallSpeed:   DRONE_STALL_KMH / 3.6,
+      stallSpeed:     DRONE_STALL_KMH / 3.6,
+      minSpeedFactor: 0.30,
     };
   }
 
@@ -264,9 +265,10 @@ export class Simulation {
       maxThrust,
       maxSpeed,
       dragCoef:     dragCoefForSpeed(maxThrust, maxSpeed),
-      responseTime: ANTI_RESPONSE_TIME,
-      maxVz:        ANTI_MAX_VZ,
-      yawRate:      DEFAULT_ANTI_TURN_RATE,
+      responseTime:   ANTI_RESPONSE_TIME,
+      maxVz:          ANTI_MAX_VZ,
+      yawRate:        DEFAULT_ANTI_TURN_RATE,
+      minSpeedFactor: 0.05,   // can slow to ~5% of cruise for tight turns (~17 km/h)
     };
   }
 
