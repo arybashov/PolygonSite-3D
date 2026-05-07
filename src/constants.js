@@ -23,6 +23,8 @@ export const DRONE_FOV   = Math.PI * 2;          // rad  — drone threat radar 
 export const DRONE_DETECT_R  = 600;     // m  — drone threat detection range
 export const CAM_ELEV_R  = 200;         // m  — ground camera elevation visibility range
 
+export const DRONE_STALL_KMH = 65;     // km/h — minimum drone airspeed (stall speed)
+
 // Turn rates (rad/s)
 export const DEFAULT_DRONE_TURN_RATE = 45 * Math.PI / 180;
 export const DEFAULT_ANTI_TURN_RATE  = 90 * Math.PI / 180;

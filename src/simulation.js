@@ -17,6 +17,7 @@ import {
   DRONE_COLS,
   DRONE_MAX_VZ,
   DRONE_RESPONSE_TIME,
+  DRONE_STALL_KMH,
   DT,
   FIELD_SIZE,
   INTERCEPT_R,
@@ -219,6 +220,7 @@ export class Simulation {
       responseTime: DRONE_RESPONSE_TIME,
       maxVz:        DRONE_MAX_VZ,
       yawRate:      DEFAULT_DRONE_TURN_RATE,
+      stallSpeed:   DRONE_STALL_KMH / 3.6,
     };
   }
 

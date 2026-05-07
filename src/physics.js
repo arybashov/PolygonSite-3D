@@ -72,11 +72,12 @@ export function navigateToPoint(agent, tx, ty, tz, speed, dt, fieldSize = 0) {
   const maxYaw     = agent.yawRate * dt;
   agent.angle += clamp(yawDiff, -maxYaw, maxYaw);
 
-  // Speed: reduce when turning or near stop-distance
+  // Speed: reduce when turning or near stop-distance, but never below stall speed
+  const stallSpeed   = agent.stallSpeed ?? 0;
   const alignFactor  = Math.max(0.25, Math.cos(yawDiff));
   const stopDist     = speed * agent.responseTime * 2.5;
   const speedFactor  = Math.min(1, distH / (stopDist + 1));
-  const desiredSpeed = speed * alignFactor * speedFactor;
+  const desiredSpeed = Math.max(stallSpeed, speed * alignFactor * speedFactor);
 
   const targetVx = distH > 0.1 ? (dx / distH) * desiredSpeed : 0;
   const targetVy = distH > 0.1 ? (dy / distH) * desiredSpeed : 0;
