@@ -5,7 +5,7 @@ export const FIELD_SIZE  = 3000;        // m  — arena size
 export const GRAVITY     = 9.81;        // m/s²
 
 // Altitude
-export const CRUISE_ALT  = 80;          // m  — default drone cruise altitude
+export const CRUISE_ALT  = 30;          // m  — default drone cruise altitude
 export const MIN_ALT     = 5;           // m
 export const MAX_ALT     = 250;         // m
 
