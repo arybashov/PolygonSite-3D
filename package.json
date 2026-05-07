@@ -1,0 +1,14 @@
+{
+  "name": "polygon-site-3d",
+  "version": "1.0.0",
+  "description": "Drone intercept simulator — 3D aerodynamics",
+  "type": "module",
+  "scripts": {
+    "dev": "npx vite --open",
+    "build": "npx vite build",
+    "preview": "npx vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

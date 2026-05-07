@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drone Intercept Simulator 3D</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="logo">SIM // 3D PHYSICS</div>
+    <h1>Drone Intercept Simulator</h1>
+    <div class="subtitle">3000 × 3000 м · 3D аэродинамика</div>
+    <button id="btnResults" type="button" class="btn-results">Results</button>
+    <div id="replayLabel" class="replay-label hidden">REPLAY · ep&nbsp;<span id="replayEp">1</span></div>
+  </header>
+
+  <div id="resultsOverlay" class="overlay hidden">
+    <div class="overlay-box">
+      <div class="overlay-header">
+        <span>Training Results</span>
+        <button id="btnCloseResults" type="button" class="btn-close">×</button>
+      </div>
+      <div class="overlay-body">
+        <div id="trainLogWrap" class="chart-summary-wrap hidden">
+          <canvas id="chartTrainLog"></canvas>
+        </div>
+        <p id="chartEmpty" class="chart-empty hidden"></p>
+        <div id="runsTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <main class="main">
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-title">Параметры</div>
+        <div class="controls">
+          <div class="ctrl">
+            <label for="dspeed">Скорость дрона (км/ч)</label>
+            <input type="range" min="80" max="300" value="200" step="10" id="dspeed">
+            <span id="dspeedV">200</span>
+          </div>
+          <div class="ctrl">
+            <label for="aspeed">Скорость антидрона (км/ч)</label>
+            <input type="range" min="150" max="500" value="350" step="10" id="aspeed">
+            <span id="aspeedV">350</span>
+          </div>
+          <div class="ctrl">
+            <label for="camrange">Дальность камеры (м)</label>
+            <input type="range" min="300" max="2500" value="900" step="50" id="camrange">
+            <span id="camrangeV">900</span>
+          </div>
+          <div class="ctrl">
+            <label for="arange">Дальность антидрона (м)</label>
+            <input type="range" min="200" max="1000" value="650" step="50" id="arange">
+            <span id="arangeV">650</span>
+          </div>
+          <div class="ctrl">
+            <label for="ndrones">Кол-во дронов</label>
+            <input type="range" min="1" max="15" value="5" step="1" id="ndrones">
+            <span id="ndronesV">5</span>
+          </div>
+          <div class="ctrl">
+            <label for="nanti">Кол-во антидронов</label>
+            <input type="range" min="1" max="15" value="5" step="1" id="nanti">
+            <span id="nantiV">5</span>
+          </div>
+          <div class="ctrl">
+            <label for="adelay">Задержка вылета (с)</label>
+            <input type="range" min="0" max="30" value="5" step="1" id="adelay">
+            <span id="adelayV">5</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="btn-row">
+          <button id="btnReset" type="button">↺ Новый сценарий</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Статистика</div>
+        <div class="stats-row">
+          <div class="stat">Дроны: <b id="sDrones">5</b></div>
+          <div class="stat stat-hit">Поразили цель: <b id="sHits">0</b></div>
+          <div class="stat stat-int">Перехвачено: <b id="sInt">0</b></div>
+          <div class="stat stat-ad">Антидроны: <b id="sAD">0</b></div>
+          <div class="stat stat-time">Время: <b id="sTime">0</b>с</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Физика (3D)</div>
+        <div class="ml-row"><span>Высота крейс.</span><b>80 м</b></div>
+        <div class="ml-row"><span>Диапазон высот</span><b>5–250 м</b></div>
+        <div class="ml-row"><span>Перехват (3D)</span><b>30 м</b></div>
+        <div class="ml-row"><span>Инерция дрона</span><b>0.35 с</b></div>
+        <div class="ml-row"><span>Инерция антидрона</span><b>0.18 с</b></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Легенда</div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#5ba3e8"></div>Дрон (цвет = высота)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#e04b4b"></div>Антидрон</div>
+          <div class="leg-item"><div class="leg-dot" style="background:rgba(100,160,255,0.6)"></div>Камера обнаружения</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#e8a830"></div>Цель</div>
+        </div>
+      </section>
+
+      <section class="panel mt-auto">
+        <div class="hint">Колесо — зум · ПКМ+drag — панорама · Высота показана в метрах</div>
+      </section>
+    </aside>
+
+    <section class="canvas-area" aria-label="Симуляция полигона">
+      <canvas id="c"></canvas>
+    </section>
+
+    <aside class="ml-sidebar">
+      <section class="panel">
+        <div class="panel-title">Policy</div>
+        <div class="select-row">
+          <label for="policyMode">Drone policy</label>
+          <select id="policyMode">
+            <option value="rule">Rule-based</option>
+            <option value="onnx">ONNX</option>
+          </select>
+        </div>
+        <div class="policy-state">Active: <b id="policyStatus">Rule-based</b></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">3D Physics</div>
+        <div class="ml-row"><span>Model</span><b>Multicopter</b></div>
+        <div class="ml-row"><span>Drag</span><b>Quadratic</b></div>
+        <div class="ml-row"><span>Altitude ctrl</span><b>Decoupled PD</b></div>
+        <div class="ml-row"><span>Gravity</span><b>Hover-compensated</b></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Антидрон FSM</div>
+        <div class="ml-row"><span>Запуск</span><b>По камере</b></div>
+        <div class="ml-row"><span>Погоня</span><b>Только своя камера</b></div>
+        <div class="ml-row"><span>Потеря цели</span><b>→ Кружение</b></div>
+        <div class="ml-row"><span>База</span><b>Не возвращается</b></div>
+        <div class="ml-row"><span>Перехват</span><b>3D дистанция</b></div>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
