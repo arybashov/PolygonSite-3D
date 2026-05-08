@@ -46,6 +46,19 @@ export function inCone3d(ox, oy, oz, angle, fov, tx, ty, tz, range, elevRange = 
   return Math.abs(angleDiff(angle, Math.atan2(dy, dx))) <= fov / 2;
 }
 
+// True 3D cone with azimuth (yaw) + pitch (elevation tilt).
+// Cone axis = unit vector defined by azimuth and pitch; fov is full cone angle.
+export function inCone3dFull(ox, oy, oz, azimuth, pitch, fov, tx, ty, tz, range) {
+  const dx = tx - ox, dy = ty - oy, dz = tz - oz;
+  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  if (dist > range) return false;
+  const cosP = Math.cos(pitch);
+  const ax = Math.cos(azimuth) * cosP;
+  const ay = Math.sin(azimuth) * cosP;
+  const az = Math.sin(pitch);
+  return (ax * dx + ay * dy + az * dz) / dist >= Math.cos(fov / 2);
+}
+
 export function createRng(seed = Date.now()) {
   let state = seed >>> 0;
   if (state === 0) state = 0x9e3779b9;

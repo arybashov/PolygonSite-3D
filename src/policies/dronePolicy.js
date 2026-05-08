@@ -4,11 +4,14 @@ import {
   CRUISE_ALT,
   DEFAULT_DRONE_TURN_RATE,
   DRONE_DETECT_R,
-  DRONE_FOV,
+  DRONE_MAX_VZ,
   MAX_ALT,
   MIN_ALT,
 } from '../constants.js';
-import { angleDiff, clamp, distance, distance3d, inCone } from '../math.js';
+import { angleDiff, clamp, distance, distance3d } from '../math.js';
+
+const ATTACK_ALT      = 50;   // m  — altitude drone climbs to before diving
+const DIVE_SPEED_KMH  = 75;   // km/h — slow enough for tan(30°) ≈ vz/vH = 12/21
 
 export class RuleBasedDronePolicy {
   getAction(sim, drone) {
@@ -29,9 +32,32 @@ export class RuleBasedDronePolicy {
 
     if (distToTarget < ATTACK_COMMIT_DIST) {
       clearEvasion(drone);
-      drone.tx = drone.rtx; drone.ty = drone.rty; drone.tz = MIN_ALT + 5; // dive low for final approach
-      drone.mode = 'approach';
-      if (distToTarget < ARRIVAL_R) return { kind: 'hitTarget' };
+      drone.tx = drone.rtx;
+      drone.ty = drone.rty;
+
+      // 3D hit check: drone must physically reach the target on the ground
+      if (distance3d(drone.x, drone.y, drone.z ?? 0, drone.rtx, drone.rty, 0) < ARRIVAL_R) {
+        return { kind: 'hitTarget' };
+      }
+
+      // Once in dive — stay in dive (prevents re-climb when z drops back to 0).
+      // Start dive when footprint at cruise speed exactly covers remaining distance.
+      const diveZ = drone.z ?? 0;
+      const diveFootprint = Math.max(80, diveZ / DRONE_MAX_VZ * (cruiseKmh / 3.6));
+      const onDive = drone.mode === 'dive' || distToTarget < diveFootprint;
+
+      if (!onDive) {
+        drone.tz   = ATTACK_ALT;
+        drone.mode = 'climb';
+        return { kind: 'guidance', tx: drone.rtx, ty: drone.rty, tz: ATTACK_ALT,
+                 intent: 'attack', mode: 'climb', cruiseKmh };
+      }
+
+      // Dive phase: maintain cruise speed, let vz bring drone to ground.
+      drone.tz   = 0;
+      drone.mode = 'dive';
+      return { kind: 'guidance', tx: drone.rtx, ty: drone.rty, tz: 0,
+               intent: 'attack', mode: 'dive', cruiseKmh };
     } else {
       const threat = findThreat(sim, drone);
       if (threat) {
@@ -71,60 +97,10 @@ export class RuleBasedDronePolicy {
   }
 }
 
-// ML policies (stubs — observation encoding needs 3D update)
-export class TeamWaypointMlDronePolicy {
-  constructor({ actionProvider, deploymentProvider, fallback = new RuleBasedDronePolicy() } = {}) {
-    this.actionProvider      = actionProvider;
-    this.deploymentProvider  = deploymentProvider;
-    this.fallback            = fallback;
-  }
-
-  getDeployment(sim, droneCount) {
-    if (!this.deploymentProvider) return null;
-    try {
-      const obs = encodeDeploymentObservation(sim, droneCount);
-      const out = this.deploymentProvider(obs, sim, droneCount);
-      return out ? decodePerimeterDeployment(out, droneCount) : null;
-    } catch { return null; }
-  }
-
-  getTeamActions(sim) {
-    if (!this.actionProvider) return buildFallbackActions(sim, this.fallback);
-    try {
-      const obs = encodeTeamObservation(sim);
-      const out = this.actionProvider(obs, sim);
-      if (!out) return buildFallbackActions(sim, this.fallback);
-      const actions = decodeTeamWaypointActions(out, sim);
-      sim.drones.forEach((drone) => {
-        const ma = getMaintenanceAction(sim, drone);
-        if (ma) { actions.set(drone.id, ma); return; }
-        if (!actions.get(drone.id)) actions.set(drone.id, this.fallback.getAction(sim, drone));
-      });
-      return actions;
-    } catch { return buildFallbackActions(sim, this.fallback); }
-  }
-}
-
-function buildFallbackActions(sim, fallback) {
-  const actions = new Map();
-  sim.drones.forEach((d) => actions.set(d.id, fallback.getAction(sim, d)));
-  return actions;
-}
-
-function getMaintenanceAction(sim, drone) {
-  if (!drone.alive || drone.mode === 'hit' || drone.mode === 'intercepted') return { kind: 'idle' };
-  if (sim.targets[drone.targetIdx]?.hit) {
-    const closest = sim.findClosestUnattackedTarget(drone);
-    if (!closest) return { kind: 'deactivate' };
-    retarget(drone, closest);
-  }
-  if (distance(drone.x, drone.y, drone.rtx, drone.rty) < ARRIVAL_R) return { kind: 'hitTarget' };
-  return null;
-}
 
 function retarget(drone, closest) {
   drone.targetIdx = closest.i;
-  drone.rtx = closest.t.x; drone.rty = closest.t.y; drone.rtz = CRUISE_ALT;
+  drone.rtx = closest.t.x; drone.rty = closest.t.y; drone.rtz = closest.t.z ?? 0;
   drone.tx  = closest.t.x; drone.ty  = closest.t.y; drone.tz  = CRUISE_ALT;
   drone.mode = 'approach';
 }
@@ -139,7 +115,7 @@ function clearEvasion(drone) {
 function findThreat(sim, drone) {
   return sim.antidrones.find((anti) => {
     return anti.alive && anti.mode !== 'base'
-      && inCone(drone.x, drone.y, drone.angle, DRONE_FOV, anti.x, anti.y, DRONE_DETECT_R);
+      && distance3d(drone.x, drone.y, drone.z ?? 0, anti.x, anti.y, anti.z ?? 0) <= DRONE_DETECT_R;
   }) ?? null;
 }
 
@@ -164,10 +140,10 @@ function computeEvadeWaypoint(sim, drone, threat) {
   const d1 = distance(c1x, c1y, drone.rtx, drone.rty);
   const d2 = distance(c2x, c2y, drone.rtx, drone.rty);
 
-  // Altitude evasion: pick altitude away from threat's current altitude
-  const evadeZ = threat.z > (drone.z ?? CRUISE_ALT)
-    ? clamp((drone.z ?? CRUISE_ALT) - 40, MIN_ALT, MAX_ALT)
-    : clamp((drone.z ?? CRUISE_ALT) + 40, MIN_ALT, MAX_ALT);
+  // Altitude evasion: always relative to cruise alt, not current drone alt (prevents accumulation)
+  const evadeZ = threat.z > CRUISE_ALT
+    ? clamp(CRUISE_ALT - 15, MIN_ALT, MAX_ALT)
+    : clamp(CRUISE_ALT + 40, MIN_ALT, MAX_ALT);
 
   return {
     wpt:  d1 < d2
@@ -225,8 +201,3 @@ function updateNonThreatFlight(drone, turnRadius) {
   }
 }
 
-// ── Stub imports (ML observations not yet ported to 3D) ───────────────────
-function encodeDeploymentObservation() { return []; }
-function encodeTeamObservation()       { return []; }
-function decodeTeamWaypointActions()   { return new Map(); }
-function decodePerimeterDeployment()   { return []; }

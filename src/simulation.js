@@ -6,6 +6,7 @@ import {
   BASE_X,
   BASE_Y,
   CAMERA_COUNT,
+  CAMERA_Z,
   CAM_ELEV_R,
   CAM_FOV,
   CENTER_ZONE,
@@ -24,7 +25,7 @@ import {
   MAX_ALT,
   MIN_ALT,
 } from './constants.js';
-import { angleDiff, clamp, createRng, distance, distance3d, inCone3d, lerp } from './math.js';
+import { angleDiff, clamp, createRng, distance, distance3d, inCone3d, inCone3dFull, lerp } from './math.js';
 import { applyPhysics, dragCoefForSpeed, navigateToPoint } from './physics.js';
 import { RuleBasedDronePolicy } from './policies/dronePolicy.js';
 
@@ -70,7 +71,7 @@ export class Simulation {
     const antiCount  = Math.floor(this.getParam('nanti'));
 
     const targets = Array.from({ length: Math.max(0, droneCount - 1) }, () => this.spawnTarget());
-    targets.push({ x: BASE_X, y: BASE_Y, hit: false });
+    targets.push({ x: BASE_X, y: BASE_Y, z: 0, hit: false });
     this.targets.push(...targets);
 
     this.cameras = this.placeCamerasAroundTargets();
@@ -180,6 +181,7 @@ export class Simulation {
     return {
       x: FIELD_SIZE / 2 + Math.cos(angle) * radius,
       y: FIELD_SIZE / 2 + Math.sin(angle) * radius,
+      z: 0,
       hit: false,
     };
   }
@@ -226,7 +228,7 @@ export class Simulation {
   }
 
   makeCamera(id, x, y, angle) {
-    return { id, x, y, angle, detected: null, cooldown: 0 };
+    return { id, x, y, z: CAMERA_Z, angle, detected: null, cooldown: 0 };
   }
 
   placeCamerasAroundTargets() {
@@ -299,6 +301,8 @@ export class Simulation {
     drone.dragCoef  = dragCoefForSpeed(drone.maxThrust, drone.maxSpeed);
 
     navigateToPoint(drone, action.tx, action.ty, tz, cruiseSpeed, this.dt, FIELD_SIZE);
+    // Hard altitude floor during normal flight; lifted only on final dive (tz near ground)
+    if (tz >= MIN_ALT) drone.z = Math.max(MIN_ALT, drone.z);
 
     drone.trail.push({ x: drone.x, y: drone.y, z: drone.z });
     if (drone.trail.length > 500) drone.trail.shift();
@@ -319,8 +323,8 @@ export class Simulation {
       this.drones.forEach((drone) => {
         if (!drone.alive || drone.mode === 'hit' || drone.mode === 'intercepted') return;
         // Ground cameras look upward — use 3D distance with elevation range cap
-        if (!inCone3d(camera.x, camera.y, 0, camera.angle, CAM_FOV, drone.x, drone.y, drone.z, camRange, CAM_ELEV_R)) return;
-        const d = distance3d(camera.x, camera.y, 0, drone.x, drone.y, drone.z);
+        if (!inCone3d(camera.x, camera.y, camera.z, camera.angle, CAM_FOV, drone.x, drone.y, drone.z, camRange, CAM_ELEV_R)) return;
+        const d = distance3d(camera.x, camera.y, camera.z, drone.x, drone.y, drone.z);
         if (d < bestDist) { bestDist = d; best = drone; }
       });
 
@@ -341,9 +345,10 @@ export class Simulation {
 
   findNewAntiTarget(anti) {
     const antiRange = this.getParam('arange');
+    const pitch = Math.atan2(anti.vz ?? 0, Math.hypot(anti.vx ?? 0, anti.vy ?? 0));
     const inView = this.drones.filter((drone) => {
       return drone.alive && drone.mode !== 'hit' && drone.mode !== 'intercepted'
-        && inCone3d(anti.x, anti.y, anti.z, anti.angle, ANTI_FOV, drone.x, drone.y, drone.z, antiRange);
+        && inCone3dFull(anti.x, anti.y, anti.z, anti.angle, pitch, ANTI_FOV, drone.x, drone.y, drone.z, antiRange);
     });
     if (inView.length === 0) return null;
     inView.sort((a, b) =>
@@ -398,11 +403,12 @@ export class Simulation {
       anti.battery -= this.dt;
       if (anti.battery <= 0) { anti.alive = false; return; }
 
-      // Camera always active — scan for drones in FOV
+      // Camera always active — scan for drones in FOV (cone tilts with antidrone pitch)
       if (anti.mode !== 'base' && anti.mode !== 'waiting') {
+        const pitch = Math.atan2(anti.vz ?? 0, Math.hypot(anti.vx ?? 0, anti.vy ?? 0));
         const inView = this.drones.filter((drone) => {
           return drone.alive && drone.mode !== 'hit' && drone.mode !== 'intercepted'
-            && inCone3d(anti.x, anti.y, anti.z, anti.angle, ANTI_FOV, drone.x, drone.y, drone.z, antiRange);
+            && inCone3dFull(anti.x, anti.y, anti.z, anti.angle, pitch, ANTI_FOV, drone.x, drone.y, drone.z, antiRange);
         });
         if (inView.length > 0) {
           inView.sort((a, b) =>
@@ -439,7 +445,9 @@ export class Simulation {
           anti.lastKnownX = nt.x; anti.lastKnownY = nt.y; anti.lastKnownZ = nt.z;
           anti.mode = 'intercept';
         } else { anti.mode = 'circle'; anti.target = null; return; }
-      } else if (inCone3d(anti.x, anti.y, anti.z, anti.angle, ANTI_FOV, anti.target.x, anti.target.y, anti.target.z, antiRange)) {
+      } else if (inCone3dFull(anti.x, anti.y, anti.z, anti.angle,
+                   Math.atan2(anti.vz ?? 0, Math.hypot(anti.vx ?? 0, anti.vy ?? 0)),
+                   ANTI_FOV, anti.target.x, anti.target.y, anti.target.z, antiRange)) {
         anti.lastKnownX = anti.target.x;
         anti.lastKnownY = anti.target.y;
         anti.lastKnownZ = anti.target.z;
@@ -451,10 +459,17 @@ export class Simulation {
       }
     }
 
-    // Destination
+    // Destination — lead pursuit in chase mode, raw last-known otherwise
     let gx, gy, gz;
     if (anti.mode === 'chase' && anti.target?.alive) {
-      gx = anti.target.x; gy = anti.target.y; gz = anti.target.z;
+      const t = anti.target;
+      const dvx = t.vx ?? 0, dvy = t.vy ?? 0, dvz = t.vz ?? 0;
+      const dist3 = distance3d(anti.x, anti.y, anti.z, t.x, t.y, t.z);
+      // Lead time: distance / antidrone speed, capped at 2.5 s
+      const tLead = Math.min(2.5, dist3 / Math.max(1, anti.maxSpeed));
+      gx = clamp(t.x + dvx * tLead, 0, FIELD_SIZE);
+      gy = clamp(t.y + dvy * tLead, 0, FIELD_SIZE);
+      gz = clamp((t.z ?? CRUISE_ALT) + dvz * tLead, MIN_ALT, MAX_ALT);
     } else if (anti.lastKnownX !== null) {
       gx = anti.lastKnownX; gy = anti.lastKnownY; gz = anti.lastKnownZ ?? CRUISE_ALT;
     } else { anti.mode = 'circle'; return; }

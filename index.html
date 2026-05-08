@@ -6,32 +6,14 @@
   <title>Drone Intercept Simulator 3D</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 </head>
 <body>
   <header>
     <div class="logo">SIM // 3D PHYSICS</div>
     <h1>Drone Intercept Simulator</h1>
     <div class="subtitle">3000 × 3000 м · 3D аэродинамика</div>
-    <button id="btnResults" type="button" class="btn-results">Results</button>
-    <div id="replayLabel" class="replay-label hidden">REPLAY · ep&nbsp;<span id="replayEp">1</span></div>
   </header>
 
-  <div id="resultsOverlay" class="overlay hidden">
-    <div class="overlay-box">
-      <div class="overlay-header">
-        <span>Training Results</span>
-        <button id="btnCloseResults" type="button" class="btn-close">×</button>
-      </div>
-      <div class="overlay-body">
-        <div id="trainLogWrap" class="chart-summary-wrap hidden">
-          <canvas id="chartTrainLog"></canvas>
-        </div>
-        <p id="chartEmpty" class="chart-empty hidden"></p>
-        <div id="runsTable"></div>
-      </div>
-    </div>
-  </div>
 
   <main class="main">
     <aside class="sidebar">
@@ -96,7 +78,7 @@
       <section class="panel">
         <div class="panel-title">Физика (3D)</div>
         <div class="ml-row"><span>Высота крейс.</span><b>30 м</b></div>
-        <div class="ml-row"><span>Диапазон высот</span><b>5–250 м</b></div>
+        <div class="ml-row"><span>Диапазон высот</span><b>15–250 м</b></div>
         <div class="ml-row"><span>Перехват (3D)</span><b>30 м</b></div>
         <div class="ml-row"><span>Масса дрона</span><b>15 кг</b></div>
         <div class="ml-row"><span>Масса антидрона</span><b>0.5 кг</b></div>
@@ -121,21 +103,10 @@
 
     <section class="canvas-area" aria-label="Симуляция полигона">
       <canvas id="c"></canvas>
+      <canvas id="elev"></canvas>
     </section>
 
     <aside class="ml-sidebar">
-      <section class="panel">
-        <div class="panel-title">Policy</div>
-        <div class="select-row">
-          <label for="policyMode">Drone policy</label>
-          <select id="policyMode">
-            <option value="rule">Rule-based</option>
-            <option value="onnx">ONNX</option>
-          </select>
-        </div>
-        <div class="policy-state">Active: <b id="policyStatus">Rule-based</b></div>
-      </section>
-
       <section class="panel">
         <div class="panel-title">3D Physics</div>
         <div class="ml-row"><span>Model</span><b>Multicopter</b></div>

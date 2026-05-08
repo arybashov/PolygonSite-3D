@@ -7,6 +7,7 @@ import {
   DRONE_FOV,
   FIELD_SIZE,
   MAX_ALT,
+  MIN_ALT,
 } from './constants.js';
 
 // Color based on altitude: low = green-dim, high = bright cyan
@@ -42,9 +43,8 @@ export class CanvasRenderer {
   resetView() { this.camOffX = 0; this.camOffY = 0; this.camUserZoom = 1.0; }
 
   resize() {
-    const area   = this.canvas.parentElement;
-    this.width   = area.clientWidth  || 600;
-    this.height  = area.clientHeight || 600;
+    this.width   = this.canvas.offsetWidth  || 600;
+    this.height  = this.canvas.offsetHeight || 600;
     this.canvas.width  = this.width;
     this.canvas.height = this.height;
   }
@@ -369,5 +369,140 @@ export class CanvasRenderer {
     ctx.closePath();
     ctx.fillStyle = bodyColor; ctx.fill();
     ctx.restore();
+  }
+}
+
+// ── Elevation (side-view) renderer ───────────────────────────────────────────
+// Shows world X on horizontal axis and altitude Z on vertical axis.
+// The X axis always spans 0..FIELD_SIZE (independent of top-view zoom).
+export class ElevationRenderer {
+  constructor(canvas, sim, topRenderer) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+    this.sim    = sim;
+    this.top    = topRenderer;
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    this.width  = this.canvas.offsetWidth  || 600;
+    this.height = this.canvas.offsetHeight || 150;
+    this.canvas.width  = this.width;
+    this.canvas.height = this.height;
+  }
+
+  // Same horizontal transform as top view (zoom + pan), but centered on this canvas's width
+  wx(worldX) {
+    const zoom = this.top.getZoom();
+    const cx   = FIELD_SIZE / 2 + this.top.camOffX;
+    return (worldX - cx) * zoom + this.width / 2;
+  }
+
+  wy(z) {
+    const PAD_T = 16, PAD_B = 16;
+    return PAD_T + (1 - Math.min(1, Math.max(0, z) / MAX_ALT)) * (this.height - PAD_T - PAD_B);
+  }
+
+  draw() {
+    const { ctx, width: w, height: h } = this;
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0c0e0d';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.font = '9px "Share Tech Mono"';
+
+    // Altitude grid lines
+    for (let alt = 0; alt <= MAX_ALT; alt += 50) {
+      const sy = this.wy(alt);
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy);
+      ctx.strokeStyle = alt === 0 ? 'rgba(78,203,113,0.40)' : 'rgba(78,203,113,0.08)';
+      ctx.lineWidth = alt === 0 ? 1.5 : 1;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(78,203,113,0.35)';
+      ctx.fillText(alt === 0 ? 'GND' : alt + 'm', 3, sy - 2);
+    }
+
+    // Cruise altitude dashed reference
+    const csy = this.wy(CRUISE_ALT);
+    ctx.beginPath(); ctx.moveTo(0, csy); ctx.lineTo(w, csy);
+    ctx.strokeStyle = 'rgba(78,203,113,0.20)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+    // Drone trails (X, Z projection)
+    this.sim.drones.forEach((drone) => {
+      if (drone.trail.length < 2) return;
+      for (let i = 1; i < drone.trail.length; i++) {
+        const p0 = drone.trail[i - 1], p1 = drone.trail[i];
+        const alpha = (i / drone.trail.length) * 0.45;
+        ctx.beginPath();
+        ctx.moveTo(this.wx(p0.x), this.wy(p0.z ?? CRUISE_ALT));
+        ctx.lineTo(this.wx(p1.x), this.wy(p1.z ?? CRUISE_ALT));
+        ctx.strokeStyle = `rgba(91,163,232,${alpha})`;
+        ctx.lineWidth = 1; ctx.stroke();
+      }
+    });
+
+    // Antidrone trails
+    this.sim.antidrones.forEach((anti) => {
+      if (anti.trail.length < 2) return;
+      for (let i = 1; i < anti.trail.length; i++) {
+        const p0 = anti.trail[i - 1], p1 = anti.trail[i];
+        const alpha = (i / anti.trail.length) * 0.45;
+        ctx.beginPath();
+        ctx.moveTo(this.wx(p0.x), this.wy(p0.z ?? MIN_ALT));
+        ctx.lineTo(this.wx(p1.x), this.wy(p1.z ?? MIN_ALT));
+        ctx.strokeStyle = `rgba(224,75,74,${alpha})`;
+        ctx.lineWidth = 1; ctx.stroke();
+      }
+    });
+
+    // Drone dots
+    this.sim.drones.forEach((drone) => {
+      if (!drone.alive || drone.mode === 'intercepted') return;
+      const sx = this.wx(drone.x), sy = this.wy(drone.z ?? CRUISE_ALT);
+      ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = drone.col ?? '#5ba3e8'; ctx.fill();
+      // altitude label
+      ctx.fillStyle = altColor(drone.z, 0.65);
+      ctx.fillText(Math.round(drone.z ?? 0) + 'm', sx + 6, sy - 3);
+    });
+
+    // Antidrone dots
+    this.sim.antidrones.forEach((anti) => {
+      if (!anti.alive || anti.mode === 'base' || anti.mode === 'waiting') return;
+      const sx = this.wx(anti.x), sy = this.wy(anti.z ?? 0);
+      ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#e04b4b'; ctx.fill();
+    });
+
+    // Cameras (on masts at CAMERA_Z height)
+    this.sim.cameras.forEach((cam) => {
+      const sx = this.wx(cam.x), sy = this.wy(cam.z ?? 0);
+      ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = cam.detected ? 'rgba(232,168,48,0.8)' : 'rgba(91,163,232,0.45)'; ctx.fill();
+      // mast line to ground
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, this.wy(0));
+      ctx.strokeStyle = 'rgba(91,163,232,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+    });
+
+    // Targets — pin above ground line (cross sits entirely above GND, stem touches GND)
+    this.sim.targets.forEach((target) => {
+      if (target.hit) return;
+      const sx = this.wx(target.x), gnd = this.wy(0);
+      ctx.strokeStyle = 'rgba(232,168,48,0.75)'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, gnd); ctx.lineTo(sx, gnd - 14);   // stem up from ground
+      ctx.moveTo(sx - 6, gnd - 9); ctx.lineTo(sx + 6, gnd - 9); // crossbar
+      ctx.stroke();
+      // foot dot on ground
+      ctx.beginPath(); ctx.arc(sx, gnd, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(232,168,48,0.75)'; ctx.fill();
+    });
+
+    // Label
+    ctx.fillStyle = 'rgba(78,203,113,0.25)';
+    ctx.fillText('ELEV  X →  ALT ↑', w - 120, h - 4);
   }
 }

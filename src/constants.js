@@ -6,13 +6,13 @@ export const GRAVITY     = 9.81;        // m/s²
 
 // Altitude
 export const CRUISE_ALT  = 30;          // m  — default drone cruise altitude
-export const MIN_ALT     = 5;           // m
+export const MIN_ALT     = 15;          // m  — cruise altitude floor (lifted during attack dive)
 export const MAX_ALT     = 250;         // m
 
 // Geometry
 export const ARRIVAL_R   = 25;          // m  — target hit radius
-export const INTERCEPT_R = 30;          // m  — 3D intercept radius
-export const ATTACK_COMMIT_DIST = 300;  // m  — drone commits to target within this
+export const INTERCEPT_R = 45;          // m  — 3D intercept radius
+export const ATTACK_COMMIT_DIST = 500;  // m  — drone begins attack run (climb→dive) within this
 export const CENTER_ZONE = 900;         // m  — central zone radius (render only)
 export const DEPLOYMENT_MARGIN = 60;    // m  — min spawn distance from edge
 
@@ -38,6 +38,7 @@ export const ANTI_MAX_VZ   = 20;   // m/s
 // Base position
 export const BASE_X = FIELD_SIZE / 2;
 export const BASE_Y = FIELD_SIZE / 2;
+export const CAMERA_Z     = 15;         // m  — camera mast height
 export const CAMERA_COUNT = 10;
 
 export const TRAIL_LEN = 500;
