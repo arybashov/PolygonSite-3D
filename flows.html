@@ -345,9 +345,8 @@ function renderGraph() {
   });
   svg.appendChild(staticG);
 
-  // Flow edges (redrawn on select)
+  // Flow edges (redrawn on select) — drawn before nodes so nodes sit on top
   svg.appendChild(el('g',{id:'flow-edges'}));
-  svg.appendChild(el('g',{id:'flow-nums'}));
 
   // Nodes
   const nodeG=el('g',{id:'node-layer'});
@@ -370,6 +369,8 @@ function renderGraph() {
     nodeG.appendChild(g);
   });
   svg.appendChild(nodeG);
+  // flow-nums on top of everything — circles always visible over node rects
+  svg.appendChild(el('g',{id:'flow-nums'}));
 }
 
 // ── RENDER FLOW OVERLAY ───────────────────────────────────────────────────────
