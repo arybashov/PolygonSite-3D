@@ -32,15 +32,33 @@
     .graph-area { flex: 1; overflow: hidden; position: relative; }
     #graph { width: 100%; height: 100%; display: block; }
 
-    /* ── Right panel ── */
+    /* ── Left panel (Сценарии) ── */
+    .left-panel {
+      width: 220px; flex-shrink: 0;
+      background: #0b0b0d;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 7px;
+      margin: 10px 12px 4px; padding: 7px 10px;
+      background: none; border: 1px solid rgba(255,255,255,0.1);
+      color: #888; font-size: 12px; cursor: pointer; border-radius: 4px;
+      text-decoration: none; transition: color 0.12s, border-color 0.12s;
+      font-family: inherit;
+    }
+    .back-btn:hover { color: #ccc; border-color: rgba(255,255,255,0.22); }
+    .back-btn-arrow { font-size: 14px; }
+
+    /* ── Right panel (Шаги) ── */
     .right-panel {
-      width: 290px; flex-shrink: 0;
+      width: 270px; flex-shrink: 0;
       background: #0b0b0d;
       border-left: 1px solid rgba(255,255,255,0.07);
       display: flex; flex-direction: column; overflow: hidden;
     }
     .panel-section { display: flex; flex-direction: column; overflow: hidden; }
-    .panel-section.flows-section { flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .panel-section.flows-section { flex: 1; overflow-y: auto; }
     .panel-section.steps-section { flex: 1; overflow-y: auto; }
     .panel-title {
       font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
@@ -98,11 +116,22 @@
 
 <header>
   <h1>Симулятор перехвата дронов — Архитектура потоков</h1>
-  <p>Все модули системы. Выберите сценарий справа — увидите путь данных между компонентами.</p>
+  <p>Все модули системы. Выберите сценарий слева — увидите путь данных между компонентами.</p>
   <div class="legend" id="legend"></div>
 </header>
 
 <div class="body">
+  <div class="left-panel">
+    <a class="back-btn" href="index.html">
+      <span class="back-btn-arrow">←</span> Симулятор
+    </a>
+    <div class="panel-section flows-section">
+      <div class="panel-title">Сценарии</div>
+      <div id="flowsList"></div>
+      <button class="clear-btn" id="clearBtn" style="display:none">Сбросить выбор</button>
+    </div>
+  </div>
+
   <div class="graph-area">
     <svg id="graph" viewBox="0 0 840 400" preserveAspectRatio="xMidYMid meet">
       <defs id="svgDefs"></defs>
@@ -110,11 +139,6 @@
   </div>
 
   <div class="right-panel">
-    <div class="panel-section flows-section">
-      <div class="panel-title">Сценарии</div>
-      <div id="flowsList"></div>
-      <button class="clear-btn" id="clearBtn" style="display:none">Сбросить выбор</button>
-    </div>
     <div class="panel-section steps-section">
       <div class="panel-title">Шаги</div>
       <div id="stepsList"><div class="steps-empty">← Выберите сценарий</div></div>
