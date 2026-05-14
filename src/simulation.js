@@ -163,12 +163,10 @@ export class Simulation {
   }
 
   applyAntiBarometer(anti) {
+    // Altitude constraint is enforced on gz *before* physics (in updateActiveAnti/updateCirclingAnti).
+    // This post-physics pass only prevents the anti from physically penetrating the ground.
     if (anti.mode === 'base' || anti.mode === 'waiting') return;
-    if (this.isAntiSafetyOff(anti)) return;
-    if ((anti.z ?? 0) < ANTI_BARO_FLOOR) {
-      anti.vz = Math.max(0, anti.vz ?? 0);
-      anti.z  = Math.max(GROUND_CRASH_ALT, anti.z ?? 0);
-    }
+    if ((anti.z ?? 0) < GROUND_CRASH_ALT) anti.z = GROUND_CRASH_ALT;
   }
 
   isAntiSafetyOff(anti) {
@@ -332,9 +330,9 @@ export class Simulation {
 
     navigateToPoint(drone, action.tx, action.ty, tz, cruiseSpeed, this.dt, FIELD_SIZE);
     const droneSafetyOff = drone.mode === 'dive' || action.mode === 'dive';
-    if (!droneSafetyOff && drone.z < MIN_ALT) {
-      drone.vz = Math.max(0, drone.vz ?? 0);
-      drone.z = Math.max(MIN_ALT, drone.z);
+    // Soft floor at MIN_ALT: stop descent but don't snap z — altitude controller brings drone back up.
+    if (!droneSafetyOff && (drone.z ?? 0) < MIN_ALT) {
+      if ((drone.vz ?? 0) < 0) drone.vz = 0;
     }
     if ((drone.z ?? 0) < GROUND_CRASH_ALT) {
       this.markGroundCrash(drone);
@@ -564,7 +562,9 @@ export class Simulation {
     anti.angle += circleRate * this.dt;
     const targetVx = Math.cos(anti.angle) * anti.maxSpeed;
     const targetVy = Math.sin(anti.angle) * anti.maxSpeed;
-    const targetVz = anti.z < ANTI_BARO_FLOOR ? anti.maxVz : 0;
+    const targetVz = anti.z < ANTI_BARO_FLOOR
+      ? clamp((ANTI_BARO_FLOOR - anti.z) * 3.0, 0, anti.maxVz)
+      : 0;
     applyPhysics(anti, targetVx, targetVy, targetVz, this.dt);
     anti.x = clamp(anti.x, 0, FIELD_SIZE);
     anti.y = clamp(anti.y, 0, FIELD_SIZE);
