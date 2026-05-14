@@ -1,5 +1,6 @@
 import {
   ANTI_FOV,
+  CAMERA_Z,
   CAM_FOV,
   CENTER_ZONE,
   CRUISE_ALT,
@@ -376,7 +377,7 @@ export class CanvasRenderer {
 
 // ── Elevation (side-view) renderer ───────────────────────────────────────────
 // Shows world X on horizontal axis and altitude Z on vertical axis.
-// The X axis always spans 0..FIELD_SIZE (independent of top-view zoom).
+// It is a spatial side view synced with top-view zoom and pan.
 export class ElevationRenderer {
   constructor(canvas, sim, topRenderer) {
     this.canvas = canvas;
@@ -394,7 +395,6 @@ export class ElevationRenderer {
     this.canvas.height = this.height;
   }
 
-  // Same horizontal transform as top view (zoom + pan), but centered on this canvas's width
   wx(worldX) {
     const zoom = this.top.getZoom();
     const cx   = FIELD_SIZE / 2 + this.top.camOffX;
@@ -432,32 +432,17 @@ export class ElevationRenderer {
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 5]); ctx.stroke(); ctx.setLineDash([]);
 
-    // Drone trails (X, Z projection)
+    // Drone trails (X, Z projection). This is a true side view, so turns in XY
+    // can overlap in projection; use the top view to inspect horizontal turns.
     this.sim.drones.forEach((drone) => {
       if (drone.trail.length < 2) return;
-      for (let i = 1; i < drone.trail.length; i++) {
-        const p0 = drone.trail[i - 1], p1 = drone.trail[i];
-        const alpha = (i / drone.trail.length) * 0.45;
-        ctx.beginPath();
-        ctx.moveTo(this.wx(p0.x), this.wy(p0.z ?? CRUISE_ALT));
-        ctx.lineTo(this.wx(p1.x), this.wy(p1.z ?? CRUISE_ALT));
-        ctx.strokeStyle = `rgba(91,163,232,${alpha})`;
-        ctx.lineWidth = 1; ctx.stroke();
-      }
+      this.drawTrailXZ(drone.trail, (alpha) => `rgba(91,163,232,${alpha * 0.45})`, CRUISE_ALT);
     });
 
     // Antidrone trails
     this.sim.antidrones.forEach((anti) => {
       if (anti.trail.length < 2) return;
-      for (let i = 1; i < anti.trail.length; i++) {
-        const p0 = anti.trail[i - 1], p1 = anti.trail[i];
-        const alpha = (i / anti.trail.length) * 0.45;
-        ctx.beginPath();
-        ctx.moveTo(this.wx(p0.x), this.wy(p0.z ?? MIN_ALT));
-        ctx.lineTo(this.wx(p1.x), this.wy(p1.z ?? MIN_ALT));
-        ctx.strokeStyle = `rgba(224,75,74,${alpha})`;
-        ctx.lineWidth = 1; ctx.stroke();
-      }
+      this.drawTrailXZ(anti.trail, (alpha) => `rgba(224,75,74,${alpha * 0.45})`, MIN_ALT);
     });
 
     // Drone dots
@@ -479,32 +464,46 @@ export class ElevationRenderer {
       ctx.fillStyle = '#e04b4b'; ctx.fill();
     });
 
-    // Cameras (on masts at CAMERA_Z height)
+    // Cameras (on 15 m masts)
     this.sim.cameras.forEach((cam) => {
-      const sx = this.wx(cam.x), sy = this.wy(cam.z ?? 0);
+      const sx = this.wx(cam.x), sy = this.wy(cam.z ?? CAMERA_Z);
       ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-      ctx.fillStyle = cam.detected ? 'rgba(232,168,48,0.8)' : 'rgba(91,163,232,0.45)'; ctx.fill();
-      // mast line to ground
+      ctx.fillStyle = cam.detected ? 'rgba(232,168,48,0.8)' : 'rgba(91,163,232,0.45)';
+      ctx.fill();
       ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, this.wy(0));
-      ctx.strokeStyle = 'rgba(91,163,232,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = 'rgba(91,163,232,0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
     });
 
-    // Targets — pin above ground line (cross sits entirely above GND, stem touches GND)
+    // Targets
     this.sim.targets.forEach((target) => {
-      if (target.hit) return;
-      const sx = this.wx(target.x), gnd = this.wy(0);
-      ctx.strokeStyle = 'rgba(232,168,48,0.75)'; ctx.lineWidth = 1.5;
+      const sx = this.wx(target.x), gy = this.wy(0);
+      ctx.strokeStyle = target.hit ? 'rgba(224,75,74,0.35)' : 'rgba(232,168,48,0.75)';
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.moveTo(sx, gnd); ctx.lineTo(sx, gnd - 14);   // stem up from ground
-      ctx.moveTo(sx - 6, gnd - 9); ctx.lineTo(sx + 6, gnd - 9); // crossbar
+      ctx.moveTo(sx - 5, gy - 6); ctx.lineTo(sx + 5, gy - 16);
+      ctx.moveTo(sx + 5, gy - 6); ctx.lineTo(sx - 5, gy - 16);
+      ctx.moveTo(sx, gy); ctx.lineTo(sx, gy - 18);
       ctx.stroke();
-      // foot dot on ground
-      ctx.beginPath(); ctx.arc(sx, gnd, 2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(232,168,48,0.75)'; ctx.fill();
     });
 
     // Label
     ctx.fillStyle = 'rgba(78,203,113,0.25)';
     ctx.fillText(`ВЫС  X →  0-${ELEVATION_VIEW_MAX_ALT}м`, w - 130, h - 4);
+  }
+
+  drawTrailXZ(trail, colorForAlpha, fallbackZ) {
+    const ctx = this.ctx;
+    for (let i = 1; i < trail.length; i++) {
+      const p0 = trail[i - 1], p1 = trail[i];
+      const alpha = i / trail.length;
+      ctx.beginPath();
+      ctx.moveTo(this.wx(p0.x), this.wy(p0.z ?? fallbackZ));
+      ctx.lineTo(this.wx(p1.x), this.wy(p1.z ?? fallbackZ));
+      ctx.strokeStyle = colorForAlpha(alpha);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
   }
 }

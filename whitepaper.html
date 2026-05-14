@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whitepaper — Симулятор перехвата дронов</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="docs-body paper-body">
+  <header class="docs-topbar paper-toolbar">
+    <div class="logo">СИМ // WHITEPAPER</div>
+    <h1>Модель перехвата дронов</h1>
+    <a class="doc-link" href="index.html">Симулятор</a>
+    <button class="doc-link print-button" type="button" onclick="window.print()">Скачать PDF</button>
+  </header>
+
+  <main class="docs-page whitepaper-page paper-document">
+    <section class="paper-hero">
+      <div>
+        <div class="docs-kicker">Technical whitepaper</div>
+        <h2>Физически правдоподобная 3D-симуляция атаки и перехвата</h2>
+        <p>
+          Документ фиксирует принятую математическую модель, порядок расчёта,
+          ограничения безопасности, модель поведения ударного дрона и конечный
+          автомат антидрона. Цель симулятора — визуально и статистически проверять
+          алгоритмы наведения без смешивания логики принятия решений с физикой.
+        </p>
+      </div>
+      <div class="paper-facts" aria-label="Ключевые параметры">
+        <div><span>Поле</span><b>3000 x 3000 м</b></div>
+        <div><span>Шаг</span><b>0.02 с</b></div>
+        <div><span>Дрон</span><b>fixed-wing</b></div>
+        <div><span>Антидрон</span><b>multicopter</b></div>
+      </div>
+    </section>
+
+    <section id="abstract" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Abstract</div>
+        <h2>Задача и границы модели</h2>
+      </div>
+      <div class="paper-two-col">
+        <p>
+          Симулятор описывает сценарий, в котором тяжёлый ударный дрон летит к
+          наземной цели, выполняет уклонение от антидронов, затем при достаточной
+          геометрии делает набор и пикирование. Антидрон стартует по данным камер,
+          ведёт цель в 3D и пытается выполнить proximity-перехват.
+        </p>
+        <p>
+          Модель не претендует на точную аэродинамику конкретной платформы. Она
+          задаёт инженерно полезные ограничения: инерция, минимальная скорость,
+          невозможность висения самолёта, ограниченный радиус разворота, задержка
+          старта, потеря видимости и высотные полы.
+        </p>
+      </div>
+    </section>
+
+    <section id="architecture" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Simulation tick</div>
+        <h2>Разделение решения и физики</h2>
+      </div>
+      <div class="paper-flow">
+        <div><span>01</span><b>Сенсоры</b><p>Камеры и антидрон формируют наблюдение цели.</p></div>
+        <div><span>02</span><b>Решение</b><p>Политика выбирает режим, цель и целевую точку.</p></div>
+        <div><span>03</span><b>Прогноз</b><p>Считается упреждение и выполнимость манёвра.</p></div>
+        <div><span>04</span><b>Физика</b><p>Обновляются скорость, высота и позиция.</p></div>
+        <div><span>05</span><b>События</b><p>Проверяются перехват, удар о землю и поражение цели.</p></div>
+      </div>
+      <p class="paper-note">
+        Важное правило: физика вызывается после выбора режима и прогноза. После
+        физики не корректируется траектория, а только фиксируются события.
+      </p>
+    </section>
+
+    <section id="physics" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Motion model</div>
+        <h2>Две разные физические модели</h2>
+      </div>
+      <div class="paper-cards">
+        <article>
+          <h3>Ударный дрон</h3>
+          <p>
+            Дрон моделируется как тяжёлый самолёт. Тяга направлена вперёд,
+            висение невозможно, скорость не командуется ниже `stallSpeed`.
+            Набор высоты ограничен запасом скорости над скоростью сваливания.
+          </p>
+          <code>navigateFixedWingToPoint()</code>
+        </article>
+        <article>
+          <h3>Антидрон</h3>
+          <p>
+            Антидрон моделируется как лёгкий мультикоптер. Он может висеть, но
+            горизонталь и вертикаль конкурируют за общий вектор тяги; резкие
+            развороты и набор высоты имеют общий энергетический бюджет.
+          </p>
+          <code>navigateToPoint() → applyPhysics()</code>
+        </article>
+        <article>
+          <h3>Разворот</h3>
+          <p>
+            Для обоих аппаратов поворот ограничен максимальной угловой скоростью
+            и центростремительным ускорением. Поэтому на высокой скорости
+            траектория не может иметь мгновенный излом.
+          </p>
+          <code>yawRate = min(actuator, a / v)</code>
+        </article>
+      </div>
+    </section>
+
+    <section id="formulas" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Equations</div>
+        <h2>Математическая запись модели</h2>
+      </div>
+      <div class="formula-grid">
+        <article>
+          <h3>Состояние аппарата</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">s<sub>t</sub> = (x, y, z, v<sub>x</sub>, v<sub>y</sub>, v<sub>z</sub>, ψ, mode)</span><span class="eq-no">(1)</span></div>
+            <div class="formula-row"><span class="math">p<sub>t</sub> = (x, y, z), v<sub>t</sub> = (v<sub>x</sub>, v<sub>y</sub>, v<sub>z</sub>), Δt = 0.02 s</span><span class="eq-no">(2)</span></div>
+          </div>
+          <p>Позиция и скорость обновляются каждый тик. `psi` — курс в горизонтальной плоскости.</p>
+        </article>
+        <article>
+          <h3>Ограничение разворота</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">v<sub>H</sub> = √(v<sub>x</sub><sup>2</sup> + v<sub>y</sub><sup>2</sup>)</span><span class="eq-no">(3)</span></div>
+            <div class="formula-row"><span class="math">ω<sub>phys</sub> = a<sub>lat,max</sub> / max(v<sub>H</sub>, ε)</span><span class="eq-no">(4)</span></div>
+            <div class="formula-row"><span class="math">ω<sub>eff</sub> = min(ω<sub>act</sub>, ω<sub>phys</sub>)</span><span class="eq-no">(5)</span></div>
+            <div class="formula-row"><span class="math">ψ<sub>t+Δt</sub> = ψ<sub>t</sub> + clamp(Δψ, -ω<sub>eff</sub>Δt, ω<sub>eff</sub>Δt)</span><span class="eq-no">(6)</span></div>
+          </div>
+          <p>На высокой скорости радиус разворота растёт, поэтому траектория не может ломаться мгновенно.</p>
+        </article>
+        <article>
+          <h3>Минимальная скорость</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">α = max(k<sub>min</sub>, (1 + cos Δψ) / 2)</span><span class="eq-no">(7)</span></div>
+            <div class="formula-row"><span class="math">v<sub>cmd</sub> = max(v<sub>stall</sub>, v<sub>cruise</sub> α)</span><span class="eq-no">(8)</span></div>
+            <div class="formula-row"><span class="math">k<sub>min,drone</sub> = 0.65, k<sub>min,anti</sub> = 0.18</span><span class="eq-no">(9)</span></div>
+          </div>
+          <p>Дрон не получает команду зависнуть или почти остановиться при развороте.</p>
+        </article>
+        <article>
+          <h3>Fixed-wing дрон</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">D(v<sub>H</sub>) = C<sub>d</sub> v<sub>H</sub><sup>2</sup> / m</span><span class="eq-no">(10)</span></div>
+            <div class="formula-row"><span class="math">a<sub>fwd</sub> = clamp((v<sub>cmd</sub> - v<sub>H</sub>) / τ, -a<sub>brake</sub>, a<sub>forward</sub>) - D(v<sub>H</sub>)</span><span class="eq-no">(11)</span></div>
+            <div class="formula-row"><span class="math">v<sub>H,t+Δt</sub> = clamp(v<sub>H,t</sub> + a<sub>fwd</sub>Δt, 0, v<sub>max</sub>)</span><span class="eq-no">(12)</span></div>
+          </div>
+          <p>Тяга только продольная. Вертикальная тяга для висения у дрона отсутствует.</p>
+        </article>
+        <article>
+          <h3>Набор высоты дрона</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">r<sub>v</sub> = max(0, v<sub>H</sub> - v<sub>stall</sub>)</span><span class="eq-no">(13)</span></div>
+            <div class="formula-row"><span class="math">v<sub>z,up,max</sub> = min(v<sub>z,max</sub>, r<sub>v</sub> c<sub>climb</sub>)</span><span class="eq-no">(14)</span></div>
+            <div class="formula-row"><span class="math">v<sub>z,cmd</sub> = clamp(k<sub>z</sub>(z<sub>*</sub> - z) - d<sub>z</sub>v<sub>z</sub>, -v<sub>z,max</sub>, v<sub>z,up,max</sub>)</span><span class="eq-no">(15)</span></div>
+          </div>
+          <p>Чем меньше запас скорости над сваливанием, тем меньше доступный набор высоты.</p>
+        </article>
+        <article>
+          <h3>Мультикоптер антидрона</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">a<sub>des</sub> = (v<sub>cmd</sub> - v) / τ</span><span class="eq-no">(16)</span></div>
+            <div class="formula-row"><span class="math">T = (a<sub>des,x</sub> - d<sub>x</sub>, a<sub>des,y</sub> - d<sub>y</sub>, a<sub>des,z</sub> + g)</span><span class="eq-no">(17)</span></div>
+            <div class="formula-row"><span class="math">T ← T · min(1, (T<sub>max</sub>/m) / ||T||)</span><span class="eq-no">(18)</span></div>
+          </div>
+          <p>Горизонталь и вертикаль конкурируют за один вектор тяги.</p>
+        </article>
+        <article>
+          <h3>Упреждение антидрона</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">r = p<sub>target</sub> - p<sub>anti</sub>, u = v<sub>target</sub></span><span class="eq-no">(19)</span></div>
+            <div class="formula-row"><span class="math">||r + ut|| = v<sub>anti</sub>t</span><span class="eq-no">(20)</span></div>
+            <div class="formula-row"><span class="math">(u·u - v<sub>anti</sub><sup>2</sup>)t<sup>2</sup> + 2(r·u)t + r·r = 0</span><span class="eq-no">(21)</span></div>
+            <div class="formula-row"><span class="math">t<sub>lead</sub> = clamp(min positive root, 0, 2.5)</span><span class="eq-no">(22)</span></div>
+          </div>
+          <p>Если положительного корня нет, используется fallback по текущей 3D-дистанции.</p>
+        </article>
+        <article>
+          <h3>События</h3>
+          <div class="formula-block">
+            <div class="formula-row"><span class="math">intercept ⇔ ||p<sub>drone</sub> - p<sub>anti</sub>|| &lt; 20 m</span><span class="eq-no">(23)</span></div>
+            <div class="formula-row"><span class="math">hit ⇔ ||p<sub>drone,xy</sub> - p<sub>target,xy</sub>|| &lt; 25 m ∧ z<sub>drone</sub> ≤ 5 m</span><span class="eq-no">(24)</span></div>
+            <div class="formula-row"><span class="math">crash ⇔ z &lt; 1 m</span><span class="eq-no">(25)</span></div>
+          </div>
+          <p>После физического шага события только фиксируются, траектория не исправляется задним числом.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="guidance" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Guidance</div>
+        <h2>Наведение и поведение</h2>
+      </div>
+      <div class="paper-two-col">
+        <div>
+          <h3>Дрон</h3>
+          <p>
+            До атаки дрон идёт на 30 м, при угрозе выбирает боковой waypoint и
+            фиксирует высоту уклонения на весь манёвр. Перед climb-dive он
+            проверяет курс, дистанцию на набор, дистанцию на пикирование и запас
+            на разворот. После входа в атаку уклонение и ретаргетинг отключаются.
+          </p>
+        </div>
+        <div>
+          <h3>Антидрон</h3>
+          <p>
+            Антидрон стартует после задержки, выходит на последнюю известную
+            позицию, затем решает задачу упреждения по постоянной скорости цели.
+            При потере визуального контакта он ведёт цель инерциально 3 секунды,
+            после чего уходит на высоту поиска 45 м.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="safety" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Constraints</div>
+        <h2>Безопасность и события</h2>
+      </div>
+      <div class="paper-table">
+        <div><b>Высота земли</b><span>Активный аппарат ниже 1 м считается разбившимся.</span></div>
+        <div><b>Дрон</b><span>Мягкий пол 15 м действует до пикирования; в dive защита отключена.</span></div>
+        <div><b>Антидрон</b><span>Барометр держит целевую высоту не ниже 15 м, кроме терминальной фазы.</span></div>
+        <div><b>Поиск</b><span>После потери цели антидрон набирает 45 м, чтобы не кружить на высоте мачт камер.</span></div>
+        <div><b>Перехват</b><span>Proximity fuse срабатывает по 3D-дистанции меньше 20 м.</span></div>
+      </div>
+    </section>
+
+    <section id="training" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Training roadmap</div>
+        <h2>Как учить дроны проходить защиту в симуляторе</h2>
+      </div>
+      <div class="paper-two-col">
+        <div>
+          <h3>Постановка</h3>
+          <p>
+            Обучение начинается не с полной свободы, а с ограниченной политики:
+            ML-агент выбирает параметры манёвра поверх той же fixed-wing физики.
+            Это сохраняет невозможность висения, ограниченный разворот и проверку
+            выполнимости захода.
+          </p>
+          <pre class="formula"><code>observation =
+  own: x,y,z,vx,vy,vz,psi,mode
+  target: relative position
+  threats: nearest anti states
+  sensors: camera/visibility flags
+  timers: attack window, launch delay</code></pre>
+        </div>
+        <div>
+          <h3>Действия</h3>
+          <p>
+            На первом этапе агент не управляет каждым ускорением напрямую. Он
+            выбирает целевой курс, высоту, скорость и режим: cruise, evade,
+            reapproach, climb или dive. Низкоуровневая физика остаётся общей для
+            rule-based и ML-политики.
+          </p>
+          <pre class="formula"><code>action =
+  heading_delta
+  altitude_setpoint
+  speed_setpoint
+  attack_commit
+  evade_side</code></pre>
+        </div>
+      </div>
+      <div class="paper-cards training-cards">
+        <article>
+          <h3>Reward</h3>
+          <pre><code>R =
+ + hit_target
+ - intercepted
+ - ground_crash
+ - time_penalty
+ - stall_margin_violation
+ - impossible_dive_commit</code></pre>
+          <p>Награда должна поощрять поражение цели, но штрафовать физически невыполнимые или аварийные решения.</p>
+        </article>
+        <article>
+          <h3>Curriculum</h3>
+          <p>
+            Сначала один дрон, одна цель и один антидрон с задержкой. Затем
+            увеличиваем число камер, антидронов, дальность обнаружения, скорость
+            перехватчика и случайность стартовых условий.
+          </p>
+        </article>
+        <article>
+          <h3>Метрики</h3>
+          <p>
+            Основные метрики: доля поражённых целей, доля перехватов, падения,
+            минимальная скорость дрона, средний запас до stallSpeed, число
+            несостоявшихся dive commit и время до события.
+          </p>
+        </article>
+      </div>
+      <p class="paper-note">
+        Это раздел про обучение поведения внутри симулятора. Он нужен, чтобы
+        проверять устойчивость текущей защиты и сравнивать rule-based политику с
+        ML-политикой на одинаковой физике и одинаковых ограничениях.
+      </p>
+    </section>
+
+    <section id="validation" class="paper-section">
+      <div class="section-heading">
+        <div class="docs-kicker">Validation</div>
+        <h2>Текущая проверка модели</h2>
+      </div>
+      <div class="metrics">
+        <div><span>Сидов</span><b>100</b></div>
+        <div><span>Перехваты</span><b>369</b></div>
+        <div><span>Попадания</span><b>124</b></div>
+        <div><span>Падения</span><b>0 / 0</b></div>
+      </div>
+      <p class="paper-note">
+        На дефолтных параметрах у живого дрона минимальная горизонтальная скорость
+        в прогоне около 34.9 м/с, то есть fixed-wing модель не допускает зависания.
+        Эти цифры не являются калибровкой реального комплекса; это регрессионная
+        проверка текущей версии алгоритма.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

@@ -5,6 +5,7 @@ import {
   DEFAULT_DRONE_TURN_RATE,
   DRONE_DETECT_R,
   DRONE_MAX_VZ,
+  DRONE_TARGET_HIT_ALT,
   MAX_ALT,
   MIN_ALT,
 } from '../constants.js';
@@ -12,11 +13,16 @@ import { angleDiff, clamp, distance, distance3d } from '../math.js';
 
 const ATTACK_ALT      = 50;   // m  — altitude drone climbs to before diving
 const DIVE_START_ALT  = 45;   // m  — minimum altitude before final dive is allowed
-const TARGET_HIT_ALT  = 5;    // m  — final impact must be near ground
 const ATTACK_MAX_HEADING_ERROR = 55 * Math.PI / 180;
 const ATTACK_REAPPROACH_DIST = 250; // m
 
 export class RuleBasedDronePolicy {
+  getTeamActions(sim) {
+    const actions = new Map();
+    sim.drones.forEach((drone) => actions.set(drone.id, this.getAction(sim, drone)));
+    return actions;
+  }
+
   getAction(sim, drone) {
     if (!drone.alive || drone.mode === 'hit' || drone.mode === 'intercepted') return { kind: 'idle' };
 
@@ -44,7 +50,7 @@ export class RuleBasedDronePolicy {
       drone.ty = drone.rty;
 
       // Final hit check: drone must be close horizontally and near the ground.
-      if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= TARGET_HIT_ALT) {
+      if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= DRONE_TARGET_HIT_ALT) {
         return { kind: 'hitTarget' };
       }
 
@@ -52,8 +58,17 @@ export class RuleBasedDronePolicy {
       // Start dive when footprint at dive speed covers remaining distance.
       const diveZ = drone.z ?? 0;
       const diveSpeed = cruiseKmh / 3.6;
+      const hitDescentAlt = Math.max(0, Math.max(diveZ, DIVE_START_ALT) - DRONE_TARGET_HIT_ALT);
+      const cleanDiveFootprint = Math.max(80, hitDescentAlt / DRONE_MAX_VZ * diveSpeed);
+      const tooLateForCleanDive = distToTarget < cleanDiveFootprint;
+      if (drone.mode !== 'dive' && tooLateForCleanDive) {
+        startAttackReapproach(drone, turnRadius);
+        return { kind: 'guidance', tx: drone.tx, ty: drone.ty, tz: drone.tz,
+                 intent: 'attack', mode: drone.mode, cruiseKmh };
+      }
       const diveFootprint = Math.max(80, diveZ / DRONE_MAX_VZ * diveSpeed);
-      const onDive = drone.mode === 'dive' || (diveZ >= DIVE_START_ALT && distToTarget < diveFootprint);
+      const onDive = drone.mode === 'dive'
+        || (diveZ >= DIVE_START_ALT && distToTarget < diveFootprint);
 
       if (!onDive) {
         drone.tz   = ATTACK_ALT;
@@ -94,7 +109,7 @@ export class RuleBasedDronePolicy {
           updateNonThreatFlight(drone, turnRadius);
         }
         if (drone.mode !== 'evade' && drone.mode !== 'reapproach') {
-          if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= TARGET_HIT_ALT) return { kind: 'hitTarget' };
+          if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= DRONE_TARGET_HIT_ALT) return { kind: 'hitTarget' };
         }
       }
     }

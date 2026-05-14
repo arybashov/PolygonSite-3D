@@ -11,7 +11,8 @@ export const MAX_ALT     = 250;         // m
 
 // Geometry
 export const ARRIVAL_R   = 25;          // m  — target hit radius
-export const INTERCEPT_R = 10;          // m  — 3D intercept radius
+export const INTERCEPT_R = 20;          // m  — 3D intercept/proximity fuse radius
+export const DRONE_TARGET_HIT_ALT = 5;  // m  — final drone impact altitude
 export const ATTACK_COMMIT_DIST = 500;  // m  — drone begins attack run (climb→dive) within this
 export const CENTER_ZONE = 900;         // m  — central zone radius (render only)
 export const DEPLOYMENT_MARGIN = 60;    // m  — min spawn distance from edge
@@ -31,7 +32,7 @@ export const DEFAULT_ANTI_TURN_RATE  = 90 * Math.PI / 180;
 
 // Physics response times (s) — how fast velocity tracks the target
 export const DRONE_RESPONSE_TIME = 0.55;  // s  (15 kg, sluggish)
-export const ANTI_RESPONSE_TIME  = 0.10;  // s  (0.5 kg, very snappy)
+export const ANTI_RESPONSE_TIME  = 0.22;  // s  (0.5 kg, agile but not instant)
 export const DRONE_MAX_VZ  = 12;   // m/s  vertical speed limit
 export const ANTI_MAX_VZ   = 20;   // m/s
 

@@ -1,4 +1,6 @@
 node_modules/
+dist/
+vite-dev.*.log
 data/*.onnx
 data/train_log.json
 data/recordings/
