@@ -276,6 +276,36 @@ function colById(id)  { return COLS.find(c=>c.id===id); }
 // ── EDGE PATH ─────────────────────────────────────────────────────────────────
 let selfSlotMap = {};
 
+// Evaluate cubic bezier at t
+function bezierAt(ax, ay, bx, by, cx, cy, dx, dy, t) {
+  const mt = 1 - t;
+  return [
+    mt*mt*mt*ax + 3*mt*mt*t*bx + 3*mt*t*t*cx + t*t*t*dx,
+    mt*mt*mt*ay + 3*mt*mt*t*by + 3*mt*t*t*cy + t*t*t*dy,
+  ];
+}
+
+// Check if (x,y) falls inside any node rect (with pad = circle radius)
+const LABEL_PAD = 14;
+function inAnyNode(x, y) {
+  return NODES.some(n =>
+    x > n.x - NW/2 - LABEL_PAD && x < n.x + NW/2 + LABEL_PAD &&
+    y > n.y - NH/2 - LABEL_PAD && y < n.y + NH/2 + LABEL_PAD
+  );
+}
+
+// Find the t closest to 0.5 whose bezier point is outside all nodes
+function labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
+  const ts = [0.5];
+  for (let d = 0.05; d <= 0.45; d += 0.05) { ts.push(0.5 - d, 0.5 + d); }
+  for (const t of ts) {
+    const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, t);
+    if (!inAnyNode(x, y)) return { mx: x, my: y };
+  }
+  const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, 0.5);
+  return { mx: x, my: y };
+}
+
 function edgePath(fromId, toId, selfSlot=0) {
   if (fromId === toId) {
     const n = nodeById(fromId);
@@ -302,9 +332,11 @@ function edgePath(fromId, toId, selfSlot=0) {
   const C=50;
   const off = {T:[0,-C],B:[0,C],L:[-C,0],R:[C,0]};
   const [c1x,c1y]=off[best.ff.dir], [c2x,c2y]=off[best.tf.dir];
+  const cp1x=sx+c1x, cp1y=sy+c1y, cp2x=ex+c2x, cp2y=ey+c2y;
+  const { mx, my } = labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey);
   return {
-    d:`M${sx} ${sy} C${sx+c1x} ${sy+c1y} ${ex+c2x} ${ey+c2y} ${ex} ${ey}`,
-    mx:(sx+ex)/2, my:(sy+ey)/2,
+    d:`M${sx} ${sy} C${cp1x} ${cp1y} ${cp2x} ${cp2y} ${ex} ${ey}`,
+    mx, my,
   };
 }
 
