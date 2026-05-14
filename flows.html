@@ -276,7 +276,9 @@ function colById(id)  { return COLS.find(c=>c.id===id); }
 // ── EDGE PATH ─────────────────────────────────────────────────────────────────
 let selfSlotMap = {};
 
-// Evaluate cubic bezier at t
+// y-coordinate of the top routing corridor (above all node rects)
+const TOP_LANE = 38;
+
 function bezierAt(ax, ay, bx, by, cx, cy, dx, dy, t) {
   const mt = 1 - t;
   return [
@@ -285,8 +287,7 @@ function bezierAt(ax, ay, bx, by, cx, cy, dx, dy, t) {
   ];
 }
 
-// Check if (x,y) falls inside any node rect (with pad = circle radius)
-const LABEL_PAD = 14;
+const LABEL_PAD = 11;
 function inAnyNode(x, y) {
   return NODES.some(n =>
     x > n.x - NW/2 - LABEL_PAD && x < n.x + NW/2 + LABEL_PAD &&
@@ -294,10 +295,10 @@ function inAnyNode(x, y) {
   );
 }
 
-// Find the t closest to 0.5 whose bezier point is outside all nodes
+// Sample bezier for label position closest to t=0.5 that is outside all nodes
 function labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
   const ts = [0.5];
-  for (let d = 0.05; d <= 0.45; d += 0.05) { ts.push(0.5 - d, 0.5 + d); }
+  for (let d = 0.05; d <= 0.45; d += 0.05) ts.push(0.5 - d, 0.5 + d);
   for (const t of ts) {
     const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, t);
     if (!inAnyNode(x, y)) return { mx: x, my: y };
@@ -316,7 +317,28 @@ function edgePath(fromId, toId, selfSlot=0) {
       mx: ox, my: top - 38,
     };
   }
-  const f = nodeById(fromId), t = nodeById(toId);
+
+  const f = nodeById(fromId), tn = nodeById(toId);
+  const fIdx = COLS.findIndex(c => c.id === f.col);
+  const tIdx = COLS.findIndex(c => c.id === tn.col);
+  const colSpan = Math.abs(fIdx - tIdx);
+
+  // Long edges (spanning 2+ column gaps) route through the top corridor.
+  // This guarantees the midpoint circle is above all nodes.
+  if (colSpan >= 2) {
+    const sx = f.x,  sy = f.y  - NH/2;   // exit top face of source
+    const ex = tn.x, ey = tn.y - NH/2;   // enter top face of dest
+    // Both control points pulled up to TOP_LANE — the arc crests above all nodes
+    const cp1x = sx, cp1y = TOP_LANE;
+    const cp2x = ex, cp2y = TOP_LANE;
+    const [mx, my] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, 0.5);
+    return {
+      d: `M${sx} ${sy} C${cp1x} ${cp1y} ${cp2x} ${cp2y} ${ex} ${ey}`,
+      mx, my,
+    };
+  }
+
+  // Short edges (same or adjacent column): normal face-pair bezier routing
   const W = NW/2, H = NH/2;
   const faces = [
     {dx:0,dy:-H,dir:'T'},{dx:0,dy:H,dir:'B'},
@@ -324,11 +346,11 @@ function edgePath(fromId, toId, selfSlot=0) {
   ];
   let best=null, bestD=Infinity;
   for (const ff of faces) for (const tf of faces) {
-    const d = Math.hypot((f.x+ff.dx)-(t.x+tf.dx),(f.y+ff.dy)-(t.y+tf.dy));
+    const d = Math.hypot((f.x+ff.dx)-(tn.x+tf.dx),(f.y+ff.dy)-(tn.y+tf.dy));
     if (d<bestD) { bestD=d; best={ff,tf}; }
   }
   const sx=f.x+best.ff.dx, sy=f.y+best.ff.dy;
-  const ex=t.x+best.tf.dx, ey=t.y+best.tf.dy;
+  const ex=tn.x+best.tf.dx, ey=tn.y+best.tf.dy;
   const C=50;
   const off = {T:[0,-C],B:[0,C],L:[-C,0],R:[C,0]};
   const [c1x,c1y]=off[best.ff.dir], [c2x,c2y]=off[best.tf.dir];
