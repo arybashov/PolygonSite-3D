@@ -53,35 +53,40 @@
     .sidebar-legend b { color: rgba(78,203,113,0.4); display: block; letter-spacing: 1px; margin-bottom: 4px; }
 
     /* ── Main ── */
-    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .main { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
     .graph-wrap { flex: 1; overflow: hidden; }
     #graph { width: 100%; height: 100%; }
 
-    /* ── Step panel ── */
+    /* ── Step panel (right column) ── */
     .step-panel {
-      background: #090b0a; border-top: 1px solid rgba(78,203,113,0.15);
-      padding: 11px 18px; height: 108px; flex-shrink: 0; display: flex;
-      flex-direction: column; justify-content: center;
+      width: 280px; flex-shrink: 0;
+      background: #090b0a; border-left: 1px solid rgba(78,203,113,0.15);
+      padding: 16px 14px; display: flex; flex-direction: column; gap: 10px;
+      overflow-y: auto;
     }
-    .step-empty { color: rgba(78,203,113,0.22); font-size: 12px; text-align: center; }
-    .step-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .step-empty {
+      color: rgba(78,203,113,0.22); font-size: 11px;
+      text-align: center; margin: auto 0;
+    }
+    .step-header { display: flex; flex-direction: column; gap: 5px; }
     .step-flow-name { font-size: 12px; font-weight: bold; }
     .step-counter { font-size: 9px; color: rgba(78,203,113,0.4); letter-spacing: 1px; }
-    .step-nav { margin-left: auto; display: flex; gap: 6px; }
+    .step-nav { display: flex; gap: 6px; margin-top: 2px; }
     .step-nav button {
+      flex: 1;
       background: rgba(78,203,113,0.07); border: 1px solid rgba(78,203,113,0.2);
-      color: #4ecb71; font-family: inherit; font-size: 10px; padding: 3px 10px;
+      color: #4ecb71; font-family: inherit; font-size: 10px; padding: 4px 0;
       cursor: pointer; border-radius: 2px;
     }
     .step-nav button:hover { background: rgba(78,203,113,0.14); }
     .step-nav button:disabled { opacity: 0.28; cursor: default; }
-    .step-hint { font-size: 9px; color: rgba(78,203,113,0.25); margin-left: 6px; }
+    .step-hint { font-size: 9px; color: rgba(78,203,113,0.22); }
     .step-label {
       font-size: 11px; color: #c8dcc8; background: rgba(78,203,113,0.06);
-      border: 1px solid rgba(78,203,113,0.14); padding: 3px 9px; border-radius: 3px;
-      display: inline-block; margin-bottom: 5px;
+      border: 1px solid rgba(78,203,113,0.14); padding: 5px 9px; border-radius: 3px;
+      word-break: break-all;
     }
-    .step-note { font-size: 11px; color: #6a8c6a; line-height: 1.45; }
+    .step-note { font-size: 11px; color: #6a8c6a; line-height: 1.55; flex: 1; }
 
     @keyframes dash { to { stroke-dashoffset: -18; } }
     .active-edge { animation: dash 0.55s linear infinite; }
@@ -513,7 +518,6 @@ function renderPanel() {
     <div class="step-header">
       <span class="step-flow-name" style="color:${f.color}">${f.name}</span>
       <span class="step-counter">ШАГ&nbsp;${activeStep+1}&nbsp;/&nbsp;${total}</span>
-      <span class="step-hint">← → для навигации</span>
       <div class="step-nav">
         <button id="btnPrev" ${activeStep===0?'disabled':''}>◀ Пред</button>
         <button id="btnNext" ${activeStep===total-1?'disabled':''}>След ▶</button>
@@ -521,6 +525,7 @@ function renderPanel() {
     </div>
     <div class="step-label">${step.label}</div>
     <div class="step-note">${step.note}</div>
+    <div class="step-hint">← → для навигации</div>
   `;
   document.getElementById('btnPrev').onclick = () => { if (activeStep > 0) { activeStep--; update(); } };
   document.getElementById('btnNext').onclick = () => { if (activeStep < total-1) { activeStep++; update(); } };
