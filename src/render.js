@@ -122,7 +122,7 @@ export class CanvasRenderer {
     const p1 = this.w2s(FIELD_SIZE, FIELD_SIZE);
     ctx.fillStyle = 'rgba(78,203,113,0.2)';
     ctx.font = '10px "Share Tech Mono"';
-    ctx.fillText('3000m × 3000m  (altitude shown in m)', p0.x + 6, p1.y - 6);
+    ctx.fillText('3000м × 3000м  (высота в метрах)', p0.x + 6, p1.y - 6);
   }
 
   drawMap(zoom) {
@@ -154,7 +154,7 @@ export class CanvasRenderer {
     ctx.fillStyle = 'rgba(224,75,74,0.6)'; ctx.fill();
     ctx.fillStyle = 'rgba(78,203,113,0.4)';
     ctx.font = '10px "Share Tech Mono"';
-    ctx.fillText('BASE', center.x + 10, center.y + 4);
+    ctx.fillText('БАЗА', center.x + 10, center.y + 4);
   }
 
   drawCameras(zoom) {
@@ -236,7 +236,7 @@ export class CanvasRenderer {
       const z = Math.round(drone.z ?? 0);
       ctx.fillStyle = altColor(drone.z, 0.75);
       ctx.font = `${Math.max(9, 10 * zoom)}px "Share Tech Mono"`;
-      ctx.fillText(`D${drone.id + 1} ${z}m`, ds.x + 13 * scale, ds.y - 9 * scale);
+      ctx.fillText(`Д${drone.id + 1} ${z}м`, ds.x + 13 * scale, ds.y - 9 * scale);
     });
   }
 
@@ -283,7 +283,7 @@ export class CanvasRenderer {
       ctx.strokeStyle = 'rgba(232,168,48,0.7)'; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle   = 'rgba(232,168,48,0.8)';
       ctx.font = '9px "Share Tech Mono"';
-      ctx.fillText(`A${anti.id + 1}:${Math.ceil(anti.launchDelay)}s`, ds.x + 16, ds.y);
+      ctx.fillText(`А${anti.id + 1}:${Math.ceil(anti.launchDelay)}с`, ds.x + 16, ds.y);
     });
   }
 
@@ -324,7 +324,7 @@ export class CanvasRenderer {
       const z = Math.round(anti.z ?? 0);
       ctx.fillStyle = 'rgba(224,75,74,0.75)';
       ctx.font = `${Math.max(9, 10 * zoom)}px "Share Tech Mono"`;
-      ctx.fillText(`A${anti.id + 1} ${z}m`, ds.x + 13 * scale, ds.y - 9 * scale);
+      ctx.fillText(`А${anti.id + 1} ${z}м`, ds.x + 13 * scale, ds.y - 9 * scale);
     });
   }
 
@@ -422,7 +422,7 @@ export class ElevationRenderer {
       ctx.lineWidth = alt === 0 ? 1.5 : 1;
       ctx.stroke();
       ctx.fillStyle = 'rgba(78,203,113,0.35)';
-      ctx.fillText(alt === 0 ? 'GND' : alt + 'm', 3, sy - 2);
+      ctx.fillText(alt === 0 ? 'ЗМЛ' : alt + 'м', 3, sy - 2);
     }
 
     // Cruise altitude dashed reference
@@ -468,7 +468,7 @@ export class ElevationRenderer {
       ctx.fillStyle = drone.col ?? '#5ba3e8'; ctx.fill();
       // altitude label
       ctx.fillStyle = altColor(drone.z, 0.65);
-      ctx.fillText(Math.round(drone.z ?? 0) + 'm', sx + 6, sy - 3);
+      ctx.fillText(Math.round(drone.z ?? 0) + 'м', sx + 6, sy - 3);
     });
 
     // Antidrone dots
@@ -505,6 +505,6 @@ export class ElevationRenderer {
 
     // Label
     ctx.fillStyle = 'rgba(78,203,113,0.25)';
-    ctx.fillText(`ELEV  X ->  ALT 0-${ELEVATION_VIEW_MAX_ALT}m`, w - 160, h - 4);
+    ctx.fillText(`ВЫС  X →  0-${ELEVATION_VIEW_MAX_ALT}м`, w - 130, h - 4);
   }
 }
