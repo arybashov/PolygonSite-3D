@@ -11,7 +11,7 @@ export const MAX_ALT     = 250;         // m
 
 // Geometry
 export const ARRIVAL_R   = 25;          // m  — target hit radius
-export const INTERCEPT_R = 45;          // m  — 3D intercept radius
+export const INTERCEPT_R = 10;          // m  — 3D intercept radius
 export const ATTACK_COMMIT_DIST = 500;  // m  — drone begins attack run (climb→dive) within this
 export const CENTER_ZONE = 900;         // m  — central zone radius (render only)
 export const DEPLOYMENT_MARGIN = 60;    // m  — min spawn distance from edge
