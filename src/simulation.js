@@ -29,6 +29,10 @@ import { angleDiff, clamp, createRng, distance, distance3d, inCone3d, inCone3dFu
 import { applyPhysics, dragCoefForSpeed, navigateToPoint } from './physics.js';
 import { RuleBasedDronePolicy } from './policies/dronePolicy.js';
 
+const GROUND_CRASH_ALT = 1;  // m
+const ANTI_BARO_FLOOR  = MIN_ALT;
+const ANTI_LOST_VISUAL_GRACE = 0.35; // s
+
 export class Simulation {
   constructor({ params = {}, seed = Date.now(), dronePolicy = new RuleBasedDronePolicy() } = {}) {
     this.dt = DT;
@@ -151,6 +155,30 @@ export class Simulation {
     drone.trail = [];
   }
 
+  markGroundCrash(agent) {
+    this.explosions.push({ x: agent.x, y: agent.y, z: 0, t: 1.0 });
+    agent.alive = false;
+    agent.mode  = 'crashed';
+    agent.trail = [];
+  }
+
+  applyAntiBarometer(anti) {
+    if (anti.mode === 'base' || anti.mode === 'waiting') return;
+    if (this.isAntiSafetyOff(anti)) return;
+    if ((anti.z ?? 0) < ANTI_BARO_FLOOR) {
+      anti.vz = Math.max(0, anti.vz ?? 0);
+      anti.z  = Math.max(GROUND_CRASH_ALT, anti.z ?? 0);
+    }
+  }
+
+  isAntiSafetyOff(anti) {
+    return (anti.mode === 'intercept' || anti.mode === 'chase')
+      && anti.target?.alive
+      && anti.target.mode !== 'hit'
+      && anti.target.mode !== 'intercepted'
+      && distance(anti.x, anti.y, anti.target.x, anti.target.y) <= INTERCEPT_R;
+  }
+
   getDeploymentSpawns(droneCount) {
     const policySpawns = this.dronePolicy?.getDeployment?.(this, droneCount);
     if (!Array.isArray(policySpawns) || policySpawns.length < droneCount) {
@@ -256,9 +284,11 @@ export class Simulation {
       angle: 0,
       target: null,
       lastKnownX: null, lastKnownY: null, lastKnownZ: null,
+      lostVisualTimer: 0,
       mode:         'base',
       trail:        [],
       alive:        true,
+      airborne:     false,
       launchDelay:  0,
       pendingTarget: null,
       battery:      600,
@@ -301,8 +331,15 @@ export class Simulation {
     drone.dragCoef  = dragCoefForSpeed(drone.maxThrust, drone.maxSpeed);
 
     navigateToPoint(drone, action.tx, action.ty, tz, cruiseSpeed, this.dt, FIELD_SIZE);
-    // Hard altitude floor during normal flight; lifted only on final dive (tz near ground)
-    if (tz >= MIN_ALT) drone.z = Math.max(MIN_ALT, drone.z);
+    const droneSafetyOff = drone.mode === 'dive' || action.mode === 'dive';
+    if (!droneSafetyOff && drone.z < MIN_ALT) {
+      drone.vz = Math.max(0, drone.vz ?? 0);
+      drone.z = Math.max(MIN_ALT, drone.z);
+    }
+    if ((drone.z ?? 0) < GROUND_CRASH_ALT) {
+      this.markGroundCrash(drone);
+      return;
+    }
 
     drone.trail.push({ x: drone.x, y: drone.y, z: drone.z });
     if (drone.trail.length > 500) drone.trail.shift();
@@ -373,6 +410,8 @@ export class Simulation {
             anti.lastKnownX  = t.x;
             anti.lastKnownY  = t.y;
             anti.lastKnownZ  = t.z;
+            anti.z           = Math.max(GROUND_CRASH_ALT, anti.z ?? 0);
+            anti.airborne    = true;
             anti.angle       = Math.atan2(t.y - anti.y, t.x - anti.x);
             anti.mode        = 'intercept';
           } else {
@@ -380,6 +419,8 @@ export class Simulation {
             if (nt) {
               anti.target = nt;
               anti.lastKnownX = nt.x; anti.lastKnownY = nt.y; anti.lastKnownZ = nt.z;
+              anti.z = Math.max(GROUND_CRASH_ALT, anti.z ?? 0);
+              anti.airborne = true;
               anti.angle = Math.atan2(nt.y - anti.y, nt.x - anti.x);
               anti.mode  = 'intercept';
             } else { anti.mode = 'base'; }
@@ -421,6 +462,7 @@ export class Simulation {
             anti.lastKnownY = closest.y;
             anti.lastKnownZ = closest.z;
           }
+          anti.lostVisualTimer = 0;
           anti.mode = 'chase';
         }
       }
@@ -429,6 +471,13 @@ export class Simulation {
         this.updateActiveAnti(anti, antiRange);
       } else if (anti.mode === 'circle') {
         this.updateCirclingAnti(anti);
+      }
+
+      this.applyAntiBarometer(anti);
+      if ((anti.z ?? 0) >= GROUND_CRASH_ALT) anti.airborne = true;
+      if (anti.airborne && (anti.z ?? 0) < GROUND_CRASH_ALT) {
+        this.markGroundCrash(anti);
+        return;
       }
 
       anti.trail.push({ x: anti.x, y: anti.y, z: anti.z });
@@ -451,9 +500,16 @@ export class Simulation {
         anti.lastKnownX = anti.target.x;
         anti.lastKnownY = anti.target.y;
         anti.lastKnownZ = anti.target.z;
+        anti.lostVisualTimer = 0;
         anti.mode = 'chase';
       } else if (anti.mode === 'chase') {
-        anti.mode = 'circle'; return;   // lost visual → circle
+        anti.lostVisualTimer = (anti.lostVisualTimer ?? 0) + this.dt;
+        if (anti.lostVisualTimer < ANTI_LOST_VISUAL_GRACE) {
+          anti.mode = 'lastknown';
+        } else {
+          anti.mode = 'circle';
+          return;
+        }
       } else {
         anti.mode = 'lastknown';
       }
@@ -461,6 +517,7 @@ export class Simulation {
 
     // Destination — lead pursuit in chase mode, raw last-known otherwise
     let gx, gy, gz;
+    const safetyOff = this.isAntiSafetyOff(anti);
     if (anti.mode === 'chase' && anti.target?.alive) {
       const t = anti.target;
       const dvx = t.vx ?? 0, dvy = t.vy ?? 0, dvz = t.vz ?? 0;
@@ -469,10 +526,12 @@ export class Simulation {
       const tLead = Math.min(2.5, dist3 / Math.max(1, anti.maxSpeed));
       gx = clamp(t.x + dvx * tLead, 0, FIELD_SIZE);
       gy = clamp(t.y + dvy * tLead, 0, FIELD_SIZE);
-      gz = clamp((t.z ?? CRUISE_ALT) + dvz * tLead, MIN_ALT, MAX_ALT);
+      gz = clamp((t.z ?? CRUISE_ALT) + dvz * tLead, safetyOff ? 0 : ANTI_BARO_FLOOR, MAX_ALT);
     } else if (anti.lastKnownX !== null) {
       gx = anti.lastKnownX; gy = anti.lastKnownY; gz = anti.lastKnownZ ?? CRUISE_ALT;
     } else { anti.mode = 'circle'; return; }
+
+    gz = clamp(gz, safetyOff ? 0 : ANTI_BARO_FLOOR, MAX_ALT);
 
     // 3D intercept check
     if (anti.target?.alive && anti.target.mode !== 'hit' && anti.target.mode !== 'intercepted') {
@@ -496,7 +555,7 @@ export class Simulation {
       }
     }
 
-    navigateToPoint(anti, gx, gy, gz ?? CRUISE_ALT, anti.maxSpeed, this.dt, FIELD_SIZE);
+    navigateToPoint(anti, gx, gy, gz, anti.maxSpeed, this.dt, FIELD_SIZE);
   }
 
   updateCirclingAnti(anti) {
@@ -505,8 +564,8 @@ export class Simulation {
     anti.angle += circleRate * this.dt;
     const targetVx = Math.cos(anti.angle) * anti.maxSpeed;
     const targetVy = Math.sin(anti.angle) * anti.maxSpeed;
-    // Maintain current altitude while circling
-    applyPhysics(anti, targetVx, targetVy, 0, this.dt);
+    const targetVz = anti.z < ANTI_BARO_FLOOR ? anti.maxVz : 0;
+    applyPhysics(anti, targetVx, targetVy, targetVz, this.dt);
     anti.x = clamp(anti.x, 0, FIELD_SIZE);
     anti.y = clamp(anti.y, 0, FIELD_SIZE);
   }

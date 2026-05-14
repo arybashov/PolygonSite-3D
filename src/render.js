@@ -21,6 +21,8 @@ function altColor(z, alpha = 1.0) {
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+const ELEVATION_VIEW_MAX_ALT = 120;
+
 export class CanvasRenderer {
   constructor(canvas, sim) {
     this.canvas = canvas;
@@ -401,7 +403,7 @@ export class ElevationRenderer {
 
   wy(z) {
     const PAD_T = 16, PAD_B = 16;
-    return PAD_T + (1 - Math.min(1, Math.max(0, z) / MAX_ALT)) * (this.height - PAD_T - PAD_B);
+    return PAD_T + (1 - Math.min(1, Math.max(0, z) / ELEVATION_VIEW_MAX_ALT)) * (this.height - PAD_T - PAD_B);
   }
 
   draw() {
@@ -413,7 +415,7 @@ export class ElevationRenderer {
     ctx.font = '9px "Share Tech Mono"';
 
     // Altitude grid lines
-    for (let alt = 0; alt <= MAX_ALT; alt += 50) {
+    for (let alt = 0; alt <= ELEVATION_VIEW_MAX_ALT; alt += 30) {
       const sy = this.wy(alt);
       ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy);
       ctx.strokeStyle = alt === 0 ? 'rgba(78,203,113,0.40)' : 'rgba(78,203,113,0.08)';
@@ -503,6 +505,6 @@ export class ElevationRenderer {
 
     // Label
     ctx.fillStyle = 'rgba(78,203,113,0.25)';
-    ctx.fillText('ELEV  X →  ALT ↑', w - 120, h - 4);
+    ctx.fillText(`ELEV  X ->  ALT 0-${ELEVATION_VIEW_MAX_ALT}m`, w - 160, h - 4);
   }
 }

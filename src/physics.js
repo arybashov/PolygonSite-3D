@@ -48,9 +48,10 @@ export function applyPhysics(agent, targetVx, targetVy, targetVz, dt) {
 
   // --- Vertical (decoupled) ---
   const tvz    = clamp(targetVz, -maxVz, maxVz);
-  const maxAccV = maxThrust * 0.20 / mass;
+  const maxAccVUp = maxThrust * 0.20 / mass;
+  const maxAccVDown = Math.max(maxAccVUp, GRAVITY);
   const errVz  = tvz - agent.vz;
-  agent.vz += clamp(errVz / (responseTime * 0.4), -maxAccV, maxAccV) * dt;
+  agent.vz += clamp(errVz / (responseTime * 0.4), -maxAccVDown, maxAccVUp) * dt;
   agent.vz  = clamp(agent.vz, -maxVz, maxVz);
 
   // --- Position ---

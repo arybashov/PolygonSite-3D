@@ -11,13 +11,17 @@ import {
 import { angleDiff, clamp, distance, distance3d } from '../math.js';
 
 const ATTACK_ALT      = 50;   // m  — altitude drone climbs to before diving
-const DIVE_SPEED_KMH  = 75;   // km/h — slow enough for tan(30°) ≈ vz/vH = 12/21
+const DIVE_START_ALT  = 45;   // m  — minimum altitude before final dive is allowed
+const TARGET_HIT_ALT  = 5;    // m  — final impact must be near ground
+const ATTACK_MAX_HEADING_ERROR = 55 * Math.PI / 180;
+const ATTACK_REAPPROACH_DIST = 250; // m
 
 export class RuleBasedDronePolicy {
   getAction(sim, drone) {
     if (!drone.alive || drone.mode === 'hit' || drone.mode === 'intercepted') return { kind: 'idle' };
 
     if (sim.targets[drone.targetIdx]?.hit) {
+      if (drone.mode === 'climb' || drone.mode === 'dive') return { kind: 'deactivate' };
       const closest = sim.findClosestUnattackedTarget(drone);
       if (!closest) return { kind: 'deactivate' };
       retarget(drone, closest);
@@ -29,22 +33,27 @@ export class RuleBasedDronePolicy {
     if (drone.evadeCooldown > 0) drone.evadeCooldown -= sim.dt;
 
     const distToTarget = distance(drone.x, drone.y, drone.rtx, drone.rty);
+    const cruiseSpeed = cruiseKmh / 3.6;
 
-    if (distToTarget < ATTACK_COMMIT_DIST) {
+    const attackCommitted = drone.mode === 'climb' || drone.mode === 'dive';
+    const attackFeasible = canCommitAttack(drone, distToTarget, cruiseSpeed, turnRadius);
+
+    if (attackCommitted || (distToTarget < ATTACK_COMMIT_DIST && attackFeasible)) {
       clearEvasion(drone);
       drone.tx = drone.rtx;
       drone.ty = drone.rty;
 
-      // 3D hit check: drone must physically reach the target on the ground
-      if (distance3d(drone.x, drone.y, drone.z ?? 0, drone.rtx, drone.rty, 0) < ARRIVAL_R) {
+      // Final hit check: drone must be close horizontally and near the ground.
+      if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= TARGET_HIT_ALT) {
         return { kind: 'hitTarget' };
       }
 
       // Once in dive — stay in dive (prevents re-climb when z drops back to 0).
-      // Start dive when footprint at cruise speed exactly covers remaining distance.
+      // Start dive when footprint at dive speed covers remaining distance.
       const diveZ = drone.z ?? 0;
-      const diveFootprint = Math.max(80, diveZ / DRONE_MAX_VZ * (cruiseKmh / 3.6));
-      const onDive = drone.mode === 'dive' || distToTarget < diveFootprint;
+      const diveSpeed = cruiseKmh / 3.6;
+      const diveFootprint = Math.max(80, diveZ / DRONE_MAX_VZ * diveSpeed);
+      const onDive = drone.mode === 'dive' || (diveZ >= DIVE_START_ALT && distToTarget < diveFootprint);
 
       if (!onDive) {
         drone.tz   = ATTACK_ALT;
@@ -53,7 +62,7 @@ export class RuleBasedDronePolicy {
                  intent: 'attack', mode: 'climb', cruiseKmh };
       }
 
-      // Dive phase: maintain cruise speed, let vz bring drone to ground.
+      // Dive phase: keep max configured horizontal speed, let vz bring drone to ground.
       drone.tz   = 0;
       drone.mode = 'dive';
       return { kind: 'guidance', tx: drone.rtx, ty: drone.rty, tz: 0,
@@ -78,9 +87,14 @@ export class RuleBasedDronePolicy {
         drone.tz = drone.evadeWpt.z;
         drone.mode = 'evade';
       } else {
-        updateNonThreatFlight(drone, turnRadius);
+        if (distToTarget < ATTACK_COMMIT_DIST && !attackFeasible
+            && drone.mode !== 'reapproach' && drone.mode !== 'bypass') {
+          startAttackReapproach(drone, turnRadius);
+        } else {
+          updateNonThreatFlight(drone, turnRadius);
+        }
         if (drone.mode !== 'evade' && drone.mode !== 'reapproach') {
-          if (distToTarget < ARRIVAL_R) return { kind: 'hitTarget' };
+          if (distToTarget < ARRIVAL_R && (drone.z ?? 0) <= TARGET_HIT_ALT) return { kind: 'hitTarget' };
         }
       }
     }
@@ -100,7 +114,7 @@ export class RuleBasedDronePolicy {
 
 function retarget(drone, closest) {
   drone.targetIdx = closest.i;
-  drone.rtx = closest.t.x; drone.rty = closest.t.y; drone.rtz = closest.t.z ?? 0;
+  drone.rtx = closest.t.x; drone.rty = closest.t.y; drone.rtz = CRUISE_ALT;
   drone.tx  = closest.t.x; drone.ty  = closest.t.y; drone.tz  = CRUISE_ALT;
   drone.mode = 'approach';
 }
@@ -110,6 +124,33 @@ function clearEvasion(drone) {
   drone.evadeWpt  = null;
   drone.predictPt = null;
   drone.threatId  = null;
+}
+
+function canCommitAttack(drone, distToTarget, cruiseSpeed, turnRadius) {
+  if (drone.mode === 'reapproach' || drone.mode === 'bypass') return false;
+
+  const targetYaw = Math.atan2(drone.rty - drone.y, drone.rtx - drone.x);
+  const headingError = Math.abs(angleDiff(drone.angle, targetYaw));
+  if (headingError > ATTACK_MAX_HEADING_ERROR) return false;
+
+  const z = drone.z ?? CRUISE_ALT;
+  const climbAlt = Math.max(0, ATTACK_ALT - z);
+  const diveAlt = Math.max(DIVE_START_ALT, z, ATTACK_ALT);
+  const climbDistance = climbAlt / DRONE_MAX_VZ * cruiseSpeed;
+  const diveDistance = diveAlt / DRONE_MAX_VZ * cruiseSpeed;
+  const turnDistance = headingError * turnRadius;
+  const requiredDistance = climbDistance + diveDistance + turnDistance + ARRIVAL_R;
+
+  return distToTarget > requiredDistance;
+}
+
+function startAttackReapproach(drone, turnRadius) {
+  clearEvasion(drone);
+  const ahead = Math.max(ATTACK_REAPPROACH_DIST, turnRadius * 3);
+  drone.tx = drone.x + Math.cos(drone.angle) * ahead;
+  drone.ty = drone.y + Math.sin(drone.angle) * ahead;
+  drone.tz = CRUISE_ALT;
+  drone.mode = 'reapproach';
 }
 
 function findThreat(sim, drone) {
@@ -141,9 +182,10 @@ function computeEvadeWaypoint(sim, drone, threat) {
   const d2 = distance(c2x, c2y, drone.rtx, drone.rty);
 
   // Altitude evasion: always relative to cruise alt, not current drone alt (prevents accumulation)
-  const evadeZ = threat.z > CRUISE_ALT
+  const preferredEvadeZ = threat.z > CRUISE_ALT
     ? clamp(CRUISE_ALT - 15, MIN_ALT, MAX_ALT)
     : clamp(CRUISE_ALT + 40, MIN_ALT, MAX_ALT);
+  const evadeZ = drone.evadeWpt?.z ?? preferredEvadeZ;
 
   return {
     wpt:  d1 < d2
@@ -200,4 +242,3 @@ function updateNonThreatFlight(drone, turnRadius) {
     }
   }
 }
-
