@@ -7,577 +7,522 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #0d0f0e; color: #c8dcc8;
-      font-family: "Share Tech Mono", "Courier New", monospace;
+      background: #0e0e10; color: #ccc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+      font-size: 13px;
     }
+
+    /* ── Header ── */
     header {
-      background: #0a0c0b; border-bottom: 1px solid rgba(78,203,113,0.2);
-      padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
     }
-    .logo { color: rgba(78,203,113,0.5); font-size: 10px; letter-spacing: 2px; }
-    h1 { font-size: 14px; color: #e0ece0; }
-    .nav-links { margin-left: auto; display: flex; gap: 12px; }
-    .nav-links a {
-      color: rgba(78,203,113,0.55); font-size: 11px; text-decoration: none;
-      padding: 3px 8px; border: 1px solid rgba(78,203,113,0.2); border-radius: 3px;
-    }
-    .nav-links a:hover { color: #4ecb71; border-color: rgba(78,203,113,0.5); }
+    header h1 { font-size: 16px; color: #eee; font-weight: 600; margin-bottom: 4px; }
+    header p  { font-size: 12px; color: #666; margin-bottom: 10px; line-height: 1.4; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #888; }
+    .leg-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
 
-    .layout { display: flex; flex: 1; overflow: hidden; }
+    /* ── Layout ── */
+    .body { display: flex; flex: 1; overflow: hidden; }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      width: 210px; background: #0a0c0b; border-right: 1px solid rgba(78,203,113,0.12);
-      display: flex; flex-direction: column; padding: 10px; gap: 5px;
-      overflow-y: auto; flex-shrink: 0;
-    }
-    .sidebar-title {
-      font-size: 9px; color: rgba(78,203,113,0.4); letter-spacing: 2px;
-      text-transform: uppercase; padding: 4px 2px 8px;
-      border-bottom: 1px solid rgba(78,203,113,0.1); margin-bottom: 4px;
-    }
-    .flow-btn {
-      background: rgba(78,203,113,0.04); border: 1px solid rgba(78,203,113,0.13);
-      color: #8aac8a; font-family: inherit; font-size: 11px; padding: 7px 9px;
-      cursor: pointer; text-align: left; border-radius: 3px;
-      transition: all 0.13s; display: flex; align-items: center; gap: 8px;
-    }
-    .flow-btn:hover { background: rgba(78,203,113,0.09); color: #c8dcc8; border-color: rgba(78,203,113,0.3); }
-    .flow-btn.active { background: rgba(78,203,113,0.11); border-color: rgba(78,203,113,0.5); color: #4ecb71; }
-    .flow-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .sidebar-legend {
-      margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(78,203,113,0.1);
-      font-size: 9px; color: #5a7a5a; line-height: 2;
-    }
-    .sidebar-legend b { color: rgba(78,203,113,0.4); display: block; letter-spacing: 1px; margin-bottom: 4px; }
+    /* ── Graph area ── */
+    .graph-area { flex: 1; overflow: hidden; position: relative; }
+    #graph { width: 100%; height: 100%; display: block; }
 
-    /* ── Main ── */
-    .main { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
-    .graph-wrap { flex: 1; overflow: hidden; }
-    #graph { width: 100%; height: 100%; }
+    /* ── Right panel ── */
+    .right-panel {
+      width: 290px; flex-shrink: 0;
+      background: #0b0b0d;
+      border-left: 1px solid rgba(255,255,255,0.07);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-section { display: flex; flex-direction: column; overflow: hidden; }
+    .panel-section.flows-section { flex-shrink: 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .panel-section.steps-section { flex: 1; overflow-y: auto; }
+    .panel-title {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+      color: #555; text-transform: uppercase;
+      padding: 12px 14px 8px;
+    }
 
-    /* ── Step panel (right column) ── */
-    .step-panel {
-      width: 280px; flex-shrink: 0;
-      background: #090b0a; border-left: 1px solid rgba(78,203,113,0.15);
-      padding: 16px 14px; display: flex; flex-direction: column; gap: 10px;
-      overflow-y: auto;
+    /* Flow items */
+    .flow-item {
+      padding: 9px 14px; cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.12s;
     }
-    .step-empty {
-      color: rgba(78,203,113,0.22); font-size: 11px;
-      text-align: center; margin: auto 0;
+    .flow-item:hover { background: rgba(255,255,255,0.04); }
+    .flow-item.active { background: rgba(255,255,255,0.05); }
+    .flow-item-name { font-size: 12px; font-weight: 500; color: #bbb; margin-bottom: 2px; }
+    .flow-item.active .flow-item-name { color: #eee; }
+    .flow-item-desc { font-size: 11px; color: #555; line-height: 1.4; }
+    .flow-item.active .flow-item-desc { color: #777; }
+    .clear-btn {
+      margin: 6px 14px 10px; padding: 5px;
+      background: none; border: 1px solid rgba(255,255,255,0.1);
+      color: #555; font-size: 11px; cursor: pointer; border-radius: 3px;
+      text-align: center;
     }
-    .step-header { display: flex; flex-direction: column; gap: 5px; }
-    .step-flow-name { font-size: 12px; font-weight: bold; }
-    .step-counter { font-size: 9px; color: rgba(78,203,113,0.4); letter-spacing: 1px; }
-    .step-nav { display: flex; gap: 6px; margin-top: 2px; }
-    .step-nav button {
-      flex: 1;
-      background: rgba(78,203,113,0.07); border: 1px solid rgba(78,203,113,0.2);
-      color: #4ecb71; font-family: inherit; font-size: 10px; padding: 4px 0;
-      cursor: pointer; border-radius: 2px;
-    }
-    .step-nav button:hover { background: rgba(78,203,113,0.14); }
-    .step-nav button:disabled { opacity: 0.28; cursor: default; }
-    .step-hint { font-size: 9px; color: rgba(78,203,113,0.22); }
-    .step-label {
-      font-size: 11px; color: #c8dcc8; background: rgba(78,203,113,0.06);
-      border: 1px solid rgba(78,203,113,0.14); padding: 5px 9px; border-radius: 3px;
-      word-break: break-all;
-    }
-    .step-note { font-size: 11px; color: #6a8c6a; line-height: 1.55; flex: 1; }
+    .clear-btn:hover { color: #999; border-color: rgba(255,255,255,0.2); }
 
-    @keyframes dash { to { stroke-dashoffset: -18; } }
-    .active-edge { animation: dash 0.55s linear infinite; }
+    /* Step items */
+    .step-item {
+      display: flex; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: pointer; transition: background 0.12s;
+    }
+    .step-item:hover { background: rgba(255,255,255,0.03); }
+    .step-item.active { background: rgba(255,255,255,0.06); }
+    .step-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+      background: rgba(255,255,255,0.1); color: #888;
+    }
+    .step-item.active .step-num { color: #fff; }
+    .step-body { flex: 1; min-width: 0; }
+    .step-call {
+      font-size: 11px; font-family: "SF Mono", "Fira Code", monospace;
+      color: #888; margin-bottom: 3px; word-break: break-all;
+    }
+    .step-item.active .step-call { color: #ccc; }
+    .step-note { font-size: 11px; color: #555; line-height: 1.4; }
+    .step-item.active .step-note { color: #777; }
+    .steps-empty { padding: 20px 14px; font-size: 11px; color: #444; text-align: center; }
   </style>
 </head>
 <body>
+
 <header>
-  <div class="logo">СИМ // АРХИТЕКТУРА</div>
-  <h1>Потоки данных между компонентами</h1>
-  <div class="nav-links">
-    <a href="whitepaper.html">Whitepaper</a>
-    <a href="index.html">← Симулятор</a>
-  </div>
+  <h1>Симулятор перехвата дронов — Архитектура потоков</h1>
+  <p>Все модули системы. Выберите сценарий справа — увидите путь данных между компонентами.</p>
+  <div class="legend" id="legend"></div>
 </header>
 
-<div class="layout">
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-title">Сценарии</div>
-  </nav>
+<div class="body">
+  <div class="graph-area">
+    <svg id="graph" viewBox="0 0 840 400" preserveAspectRatio="xMidYMid meet">
+      <defs id="svgDefs"></defs>
+    </svg>
+  </div>
 
-  <div class="main">
-    <div class="graph-wrap">
-      <svg id="graph" viewBox="0 0 960 465" preserveAspectRatio="xMidYMid meet">
-        <defs id="svgDefs"></defs>
-      </svg>
+  <div class="right-panel">
+    <div class="panel-section flows-section">
+      <div class="panel-title">Сценарии</div>
+      <div id="flowsList"></div>
+      <button class="clear-btn" id="clearBtn" style="display:none">Сбросить выбор</button>
     </div>
-    <div class="step-panel" id="stepPanel">
-      <div class="step-empty">← Выберите сценарий слева для отображения потока данных</div>
+    <div class="panel-section steps-section">
+      <div class="panel-title">Шаги</div>
+      <div id="stepsList"><div class="steps-empty">← Выберите сценарий</div></div>
     </div>
   </div>
 </div>
 
 <script>
 // ── DATA ─────────────────────────────────────────────────────────────────────
-const NW = 152, NH = 50; // node width / height
+const NW = 128, NH = 44;
 
-const DATA = {
-  nodes: [
-    { id: 'index',       label: 'index.html',       desc: 'UI · слайдеры · статистика',      x: 100,  y: 72  },
-    { id: 'app',         label: 'app.js',            desc: 'Точка входа · game loop',         x: 335,  y: 72  },
-    { id: 'charts',      label: 'charts.js',         desc: 'Оверлей результатов',             x: 820,  y: 72  },
-    { id: 'dronePolicy', label: 'dronePolicy.js',    desc: 'RuleBasedDronePolicy',            x: 155,  y: 228 },
-    { id: 'simulation',  label: 'simulation.js',     desc: 'Simulation · дроны · камеры',     x: 470,  y: 228 },
-    { id: 'render',      label: 'render.js',         desc: 'CanvasRenderer · ElevRenderer',   x: 770,  y: 228 },
-    { id: 'constants',   label: 'constants.js',      desc: 'Все числовые константы',          x: 100,  y: 400 },
-    { id: 'math',        label: 'math.js',           desc: 'clamp · angleDiff · inCone3d',    x: 370,  y: 400 },
-    { id: 'physics',     label: 'physics.js',        desc: 'applyPhysics · navigateTo…',      x: 660,  y: 400 },
-  ],
+const COLS = [
+  { id: 'ui',      label: 'Интерфейс',   color: '#5ba3e8', x: 95  },
+  { id: 'policy',  label: 'Политика',    color: '#9a8fe0', x: 255 },
+  { id: 'core',    label: 'Симуляция',   color: '#4ecb71', x: 415 },
+  { id: 'physics', label: 'Физика',      color: '#e8a830', x: 575 },
+  { id: 'render',  label: 'Рендер',      color: '#3ecaa5', x: 735 },
+];
 
-  staticEdges: [
-    { from: 'index',       to: 'app'         },
-    { from: 'app',         to: 'simulation'  },
-    { from: 'app',         to: 'render'      },
-    { from: 'simulation',  to: 'dronePolicy' },
-    { from: 'simulation',  to: 'physics'     },
-    { from: 'simulation',  to: 'math'        },
-    { from: 'simulation',  to: 'constants'   },
-    { from: 'physics',     to: 'math'        },
-    { from: 'dronePolicy', to: 'constants'   },
-    { from: 'dronePolicy', to: 'math'        },
-    { from: 'render',      to: 'constants'   },
-    { from: 'render',      to: 'simulation'  },
-  ],
+const NODES = [
+  { id: 'index',       col: 'ui',      label: 'index.html',     sub: 'UI · слайдеры · статистика', y: 130 },
+  { id: 'app',         col: 'ui',      label: 'app.js',         sub: 'Точка входа · game loop',    y: 230 },
+  { id: 'dronePolicy', col: 'policy',  label: 'dronePolicy.js', sub: 'RuleBasedDronePolicy',        y: 180 },
+  { id: 'simulation',  col: 'core',    label: 'simulation.js',  sub: 'Дроны · антидроны · камеры', y: 180 },
+  { id: 'physics',     col: 'physics', label: 'physics.js',     sub: 'applyPhysics · navigate…',   y: 110 },
+  { id: 'math',        col: 'physics', label: 'math.js',        sub: 'clamp · angleDiff · cone',   y: 210 },
+  { id: 'constants',   col: 'physics', label: 'constants.js',   sub: 'Числовые константы',         y: 310 },
+  { id: 'render',      col: 'render',  label: 'render.js',      sub: 'CanvasRenderer · ElevRend',  y: 130 },
+  { id: 'charts',      col: 'render',  label: 'charts.js',      sub: 'Оверлей результатов',        y: 230 },
+];
 
-  flows: [
-    {
-      id: 'game_loop', name: 'Игровой цикл', color: '#4ecb71',
-      desc: 'Основной цикл 50 Гц: параметры UI → шаг симуляции → рендер кадра',
-      steps: [
-        { from: 'index',      to: 'app',
-          label: 'input events → readParams()',
-          note:  'Слайдеры параметров генерируют события. app.js собирает текущие значения всех ползунков.' },
-        { from: 'app',        to: 'simulation',
-          label: 'sim.setParams(params)',
-          note:  'Собранные параметры (скорости, кол-во агентов) передаются в симуляцию перед каждым тиком.' },
-        { from: 'app',        to: 'simulation',
-          label: 'sim.step()',
-          note:  'Каждые 20 мс (50 Гц): один полный шаг — дроны, камеры, антидроны, взрывы.' },
-        { from: 'simulation', to: 'dronePolicy',
-          label: 'policy.getAction(sim, drone)',
-          note:  'Для каждого живого дрона симуляция запрашивает решение у политики. Политика читает состояние sim.' },
-        { from: 'simulation', to: 'physics',
-          label: 'navigateFixedWingToPoint() [дрон]',
-          note:  'Физика дрона: тяга только вперёд, квадратичное сопротивление, разворот с центростремительным ограничением.' },
-        { from: 'simulation', to: 'physics',
-          label: 'navigateToPoint() [антидрон]',
-          note:  'Физика антидрона: мультикоптер, 3D-тяга, горизонталь и вертикаль независимы.' },
-        { from: 'app',        to: 'render',
-          label: 'renderer.draw() + elevRenderer.draw()',
-          note:  'Рендер вызывается сразу после step(): верхний вид (CanvasRenderer) и высотный срез (ElevationRenderer).' },
-        { from: 'render',     to: 'simulation',
-          label: 'sim.drones / sim.antidrones / sim.cameras',
-          note:  'Рендер читает текущее состояние через прямые ссылки на массивы симуляции — без копирования.' },
-      ],
-    },
-    {
-      id: 'detection', name: 'Обнаружение дрона', color: '#e8a830',
-      desc: 'Наземная камера фиксирует дрон и назначает антидрон на перехват',
-      steps: [
-        { from: 'simulation',  to: 'math',
-          label: 'inCone3d(cam, drone, camRange)',
-          note:  'updateCameras() проверяет каждый дрон: 3D дальность + горизонтальный пеленг ±25° + |Δz| < 200 м.' },
-        { from: 'simulation',  to: 'constants',
-          label: 'CAM_FOV=50°  CAMERA_Z=15м  CAM_ELEV_R=200м',
-          note:  'Параметры конуса обзора берутся из constants.js. Мачта камеры 15 м, горизонтальный FOV 50°.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'anti.pendingTarget = drone  →  mode = "waiting"',
-          note:  'Ближайшему свободному антидрону (mode="base") назначается цель. Камера уходит на cooldown 3 с.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'anti.launchDelay -= dt',
-          note:  'Идёт обратный отсчёт задержки вылета (adelay, по умолчанию 5 с). Отображается в виде дуги на канвасе.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'anti.mode = "intercept"  →  взлёт',
-          note:  'После отсчёта: антидрон взлетает, mode="intercept", летит к последней известной позиции цели.' },
-      ],
-    },
-    {
-      id: 'drone_attack', name: 'Атака дрона', color: '#5ba3e8',
-      desc: 'Дрон входит в зону атаки: подъём 50 м → пике → поражение цели',
-      steps: [
-        { from: 'dronePolicy', to: 'constants',
-          label: 'ATTACK_COMMIT_DIST=500м  ATTACK_ALT=50м',
-          note:  'Политика проверяет дистанцию до цели. Если < 500 м и условия позволяют — начать заход.' },
-        { from: 'dronePolicy', to: 'math',
-          label: 'canCommitAttack(): angleDiff() · distance()',
-          note:  'Проверяется ошибка курса (<55°), нужная дистанция подъёма, снижения и запас на разворот. Если мало места — reapproach.' },
-        { from: 'dronePolicy', to: 'simulation',
-          label: '{ kind:"guidance", mode:"climb", tz:50 }',
-          note:  'Политика возвращает команду: набрать высоту 50 м. Симуляция применяет через applyDroneAction().' },
-        { from: 'simulation',  to: 'physics',
-          label: 'navigateFixedWingToPoint(tx, ty, tz=50)',
-          note:  'Физика ведёт дрон вверх. Вертикальный канал decoupled: targetVz = (tz−z)×3, clamp к maxVz.' },
-        { from: 'dronePolicy', to: 'simulation',
-          label: '{ kind:"guidance", mode:"dive", tz:0 }',
-          note:  'Дрон на высоте ≥ 45 м: переход в пике. mode="dive". Высотный пол (15 м) отключён.' },
-        { from: 'simulation',  to: 'physics',
-          label: 'navigateFixedWingToPoint(tx, ty, tz=0)',
-          note:  'Физика направляет к земле. Гравитация помогает снижению. Максимальная скорость.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'markDroneHitTarget()  →  взрыв',
-          note:  'После физического шага: dist2D < 25 м && z ≤ 5 м → цель поражена. Взрыв. drone.mode="hit". target.hit=true.' },
-      ],
-    },
-    {
-      id: 'intercept', name: 'Перехват антидроном', color: '#e04b4b',
-      desc: 'Антидрон обнаруживает дрон, рассчитывает упреждение и перехватывает',
-      steps: [
-        { from: 'simulation',  to: 'math',
-          label: 'inCone3dFull(anti, drone, aRange)',
-          note:  'Бортовая камера антидрона: конус 55°, наклонён по pitch=atan2(vz,vH). Проверка через dot product.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'anti.mode = "chase"  lastKnown обновляется',
-          note:  'Дрон в конусе → chase. Координаты lastKnownX/Y/Z обновляются каждый тик пока цель видна.' },
-        { from: 'simulation',  to: 'math',
-          label: 'distance3d() → tLead (квадратное уравнение)',
-          note:  'Время упреждения: аналитический корень |relPos + v·t| = antiSpeed·t. Clamp к [0, 2.5 с].' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'aimPoint = drone.pos + drone.vel × tLead',
-          note:  'Точка прицеливания: предсказанное будущее положение дрона через tLead секунд.' },
-        { from: 'simulation',  to: 'physics',
-          label: 'navigateToPoint(anti, aimPoint, anti.maxSpeed)',
-          note:  'Антидрон летит к aimPoint. Высотный пол gz ≥ 15 м (снимается при dist ≤ INTERCEPT_R).' },
-        { from: 'physics',     to: 'math',
-          label: 'angleDiff() · clamp() · dragCoef',
-          note:  'Физика: тяга 3D, квадратичное сопротивление, разворот с ограничением по центростремительному ускорению.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'markDroneIntercepted()  distance3d < 20 м',
-          note:  'Proximity fuse: проверка до и после физического шага, чтобы не пропустить пересечение сферы.' },
-      ],
-    },
-    {
-      id: 'evasion', name: 'Уклонение дрона', color: '#9a8fe0',
-      desc: 'Дрон обнаруживает угрозу и уходит по перпендикулярному маршруту',
-      steps: [
-        { from: 'dronePolicy', to: 'math',
-          label: 'distance3d(drone, anti) ≤ 600 м',
-          note:  'findThreat(): дрон сканирует сферу 600 м. Если антидрон alive && не на базе — угроза обнаружена.' },
-        { from: 'dronePolicy', to: 'math',
-          label: 'computeEvadeWaypoint() → predX, predY',
-          note:  'Предсказывается позиция угрозы: predPos = anti.pos + anti.vel × timeToCross. timeToCross = dist/(vDrone+vAnti).' },
-        { from: 'dronePolicy', to: 'constants',
-          label: 'CRUISE_ALT=30  MIN_ALT=15  MAX_ALT=250',
-          note:  'Высота уклонения: если угроза выше крейса → уйти на 15 м, иначе на 70 м. Фиксируется на весь evade-эпизод.' },
-        { from: 'dronePolicy', to: 'simulation',
-          label: '{ intent:"evade", tx, ty, tz }  (evadeWpt)',
-          note:  'Вейпоинт уклонения — точка, перпендикулярная к линии угрозы, на стороне ближе к цели атаки.' },
-        { from: 'simulation',  to: 'physics',
-          label: 'navigateFixedWingToPoint(evadeWpt)',
-          note:  'Дрон уходит на вейпоинт. Скорость снижена при развороте: alignFactor = max(0.65, (1+cos(yawErr))/2).' },
-      ],
-    },
-    {
-      id: 'lost_target', name: 'Потеря цели', color: '#3ecaa5',
-      desc: 'Антидрон теряет дрон из виду: инерциальное сопровождение → поиск на высоте 45 м',
-      steps: [
-        { from: 'simulation',  to: 'math',
-          label: '!inCone3dFull()  →  lostVisualTimer += dt',
-          note:  'Дрон вышел из конуса. Grace-период 3.0 с: антидрон продолжает лететь к предсказанной точке.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'mode = "lastknown"  → летит к lastKnown',
-          note:  'По истечении grace антидрон идёт к lastKnownX/Y/Z — последней зафиксированной позиции цели.' },
-        { from: 'simulation',  to: 'physics',
-          label: 'navigateToPoint(anti, lastKnown, maxSpeed)',
-          note:  'Обычная физика. gz ≥ 15 м (safety on). Скорость — максимальная.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'dist < 30 м → mode = "recoverSearch"',
-          note:  'Прибыл в точку потери, цель не найдена → набирает высоту поиска 45 м с 25 % горизонтальной скорости.' },
-        { from: 'simulation',  to: 'simulation',
-          label: 'mode = "circle"  @ gz = 45 м',
-          note:  'На высоте 45 м начинает барражирование кругами. Конус сканирует окружение в поисках дронов.' },
-        { from: 'simulation',  to: 'physics',
-          label: 'applyPhysics(circle)  targetVz = (45−z)×3',
-          note:  'Пропорциональный подъём если ниже 45 м: без скачков vz. В circle нет поступательной команды — только разворот.' },
-      ],
-    },
-  ],
-};
+// Assign x from column
+NODES.forEach(n => { n.x = COLS.find(c => c.id === n.col).x; });
+
+const STATIC_EDGES = [
+  ['index','app'], ['app','simulation'], ['app','render'],
+  ['simulation','dronePolicy'], ['simulation','physics'], ['simulation','math'],
+  ['simulation','constants'], ['physics','math'], ['dronePolicy','constants'],
+  ['dronePolicy','math'], ['render','constants'], ['render','simulation'],
+];
+
+const FLOWS = [
+  {
+    id: 'game_loop', name: 'Игровой цикл', color: '#4ecb71',
+    desc: 'Чтение UI → sim.step() → рендер кадра, 50 Гц',
+    steps: [
+      { from:'index',      to:'app',        call:'readParams() ← input events',      note:'Слайдеры параметров передают значения в app.js через DOM-события.' },
+      { from:'app',        to:'simulation', call:'sim.setParams(params)',             note:'Параметры (скорости, количество) обновляются в симуляции перед каждым тиком.' },
+      { from:'app',        to:'simulation', call:'sim.step()',                        note:'Каждые 20 мс: один полный шаг — дроны, камеры, антидроны, взрывы.' },
+      { from:'simulation', to:'dronePolicy',call:'policy.getAction(sim, drone)',      note:'Для каждого живого дрона симуляция запрашивает действие у политики.' },
+      { from:'simulation', to:'physics',    call:'navigateFixedWingToPoint() [дрон]', note:'Физика дрона: тяга вперёд, сопротивление, разворот.' },
+      { from:'simulation', to:'physics',    call:'navigateToPoint() [антидрон]',      note:'Физика антидрона: мультикоптер, 3D-тяга, независимые каналы.' },
+      { from:'app',        to:'render',     call:'renderer.draw()',                   note:'Рендер верхнего вида и высотного среза сразу после step().' },
+      { from:'render',     to:'simulation', call:'sim.drones / sim.cameras…',         note:'Рендер читает состояние симуляции напрямую через ссылки на массивы.' },
+    ],
+  },
+  {
+    id: 'detection', name: 'Обнаружение дрона', color: '#e8a830',
+    desc: 'Камера фиксирует дрон → назначает антидрон',
+    steps: [
+      { from:'simulation', to:'math',       call:'inCone3d(cam, drone, camRange)',    note:'Проверка: 3D дальность + горизонтальный пеленг ±25° + |Δz| < 200 м.' },
+      { from:'simulation', to:'constants',  call:'CAM_FOV=50°  CAMERA_Z=15м',        note:'Параметры конуса берутся из constants.js. Мачта 15 м, FOV 50°.' },
+      { from:'simulation', to:'simulation', call:'anti.pendingTarget = drone',        note:'Свободному антидрону назначается цель. mode → "waiting". Cooldown камеры 3 с.' },
+      { from:'simulation', to:'simulation', call:'anti.launchDelay -= dt',            note:'Отсчёт задержки вылета (adelay). На канвасе показан дугой.' },
+      { from:'simulation', to:'simulation', call:'anti.mode = "intercept"  → взлёт', note:'После отсчёта антидрон взлетает и летит к последней известной позиции.' },
+    ],
+  },
+  {
+    id: 'drone_attack', name: 'Атака дрона', color: '#5ba3e8',
+    desc: 'Подъём 50 м → пике → поражение цели',
+    steps: [
+      { from:'dronePolicy',to:'constants',  call:'ATTACK_COMMIT_DIST=500м',          note:'Если до цели < 500 м и курс позволяет — начать заход.' },
+      { from:'dronePolicy',to:'math',       call:'canCommitAttack(): angleDiff()',    note:'Проверка ошибки курса (<55°), дистанций подъёма/снижения и разворота.' },
+      { from:'dronePolicy',to:'simulation', call:'{mode:"climb", tz:50}',            note:'Политика возвращает команду: набрать высоту 50 м. mode="climb".' },
+      { from:'simulation', to:'physics',    call:'navigateFixedWingToPoint(tz=50)',   note:'Физика ведёт дрон вверх. targetVz = (50−z)×3, clamp к maxVz.' },
+      { from:'dronePolicy',to:'simulation', call:'{mode:"dive", tz:0}',              note:'Высота ≥ 45 м → пике. mode="dive". Высотный пол отключён.' },
+      { from:'simulation', to:'physics',    call:'navigateFixedWingToPoint(tz=0)',    note:'Физика направляет к земле. Гравитация помогает. Максимальная скорость.' },
+      { from:'simulation', to:'simulation', call:'markDroneHitTarget()  → взрыв',   note:'dist2D < 25 м && z ≤ 5 м → цель поражена. drone.mode="hit".' },
+    ],
+  },
+  {
+    id: 'intercept', name: 'Перехват антидроном', color: '#e04b4b',
+    desc: 'Обнаружение → упреждение → proximity fuse',
+    steps: [
+      { from:'simulation', to:'math',       call:'inCone3dFull(anti, drone)',         note:'Бортовая камера: конус 55°, наклонён по pitch=atan2(vz,vH). Dot product.' },
+      { from:'simulation', to:'simulation', call:'anti.mode = "chase"',              note:'Дрон в конусе → chase. lastKnownX/Y/Z обновляется каждый тик.' },
+      { from:'simulation', to:'math',       call:'distance3d() → tLead',             note:'Аналитический корень |relPos+v·t|=speed·t. Clamp к [0, 2.5 с].' },
+      { from:'simulation', to:'simulation', call:'aimPoint = pos + vel × tLead',     note:'Точка прицеливания: будущее положение дрона через tLead секунд.' },
+      { from:'simulation', to:'physics',    call:'navigateToPoint(anti, aimPoint)',   note:'Антидрон летит к aimPoint. gz ≥ 15 м (safety off при dist ≤ 20 м).' },
+      { from:'physics',    to:'math',       call:'angleDiff() · clamp() · drag',     note:'3D тяга, квадратичное сопротивление, центростремительное ограничение.' },
+      { from:'simulation', to:'simulation', call:'markDroneIntercepted()  < 20 м',  note:'Proximity fuse: проверка до и после физ. шага. Оба уничтожены.' },
+    ],
+  },
+  {
+    id: 'evasion', name: 'Уклонение дрона', color: '#9a8fe0',
+    desc: 'Угроза в сфере 600 м → перпендикулярный маршрут',
+    steps: [
+      { from:'dronePolicy',to:'math',       call:'distance3d(drone,anti) ≤ 600м',    note:'findThreat(): сфера 600 м. Живой антидрон не на базе — угроза.' },
+      { from:'dronePolicy',to:'math',       call:'computeEvadeWaypoint()',            note:'predPos = anti.pos + anti.vel × timeToCross. timeToCross = dist/(vD+vA).' },
+      { from:'dronePolicy',to:'constants',  call:'CRUISE_ALT · MIN_ALT · MAX_ALT',   note:'Высота уклонения: ±40 м от CRUISE_ALT по стороне угрозы. Фиксируется на evade-эпизод.' },
+      { from:'dronePolicy',to:'simulation', call:'{intent:"evade", tx,ty,tz}',       note:'Вейпоинт перпендикулярен линии угрозы, на стороне ближе к цели атаки.' },
+      { from:'simulation', to:'physics',    call:'navigateFixedWingToPoint(evadeWpt)',note:'alignFactor=max(0.65,(1+cos(yawErr))/2): скорость снижена в развороте.' },
+    ],
+  },
+  {
+    id: 'lost_target', name: 'Потеря цели', color: '#3ecaa5',
+    desc: 'Grace 3 с → lastknown → поиск на 45 м',
+    steps: [
+      { from:'simulation', to:'math',       call:'!inCone3dFull()  × 3.0 с',         note:'Дрон вышел из конуса. Grace-период 3.0 с: летим к предсказанной точке.' },
+      { from:'simulation', to:'simulation', call:'mode = "lastknown"',               note:'Летим к lastKnownX/Y/Z — последней зафиксированной позиции цели.' },
+      { from:'simulation', to:'physics',    call:'navigateToPoint(lastKnown)',        note:'Обычная физика. gz ≥ 15 м. Полная скорость.' },
+      { from:'simulation', to:'simulation', call:'mode = "recoverSearch"',           note:'Прибыл в точку потери → набирает высоту 45 м, 25 % горизонтальной скорости.' },
+      { from:'simulation', to:'simulation', call:'mode = "circle"  @ 45 м',         note:'Барражирование кругами. Конус сканирует окружение.' },
+      { from:'simulation', to:'physics',    call:'applyPhysics(targetVz=(45−z)×3)',  note:'Пропорциональный подъём без скачков vz, если ниже 45 м.' },
+    ],
+  },
+];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let activeFlow = null;
-let activeStep = 0;
+let activeFlow  = null;
+let activeStep  = null; // null = all, number = highlight one
 
-// ── SVG UTILS ─────────────────────────────────────────────────────────────────
+// ── SVG ───────────────────────────────────────────────────────────────────────
 const svg = document.getElementById('graph');
 const NS  = 'http://www.w3.org/2000/svg';
-
-function svgEl(tag, attrs = {}) {
+function el(tag, attrs={}) {
   const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
   return e;
 }
-function svgText(tag, attrs, text) {
-  const e = svgEl(tag, attrs);
-  e.textContent = text;
-  return e;
-}
+function txt(tag, attrs, text) { const e=el(tag,attrs); e.textContent=text; return e; }
+function nodeById(id) { return NODES.find(n=>n.id===id); }
+function colById(id)  { return COLS.find(c=>c.id===id); }
 
-function nodeById(id) { return DATA.nodes.find(n => n.id === id); }
+// ── EDGE PATH ─────────────────────────────────────────────────────────────────
+let selfSlotMap = {};
 
-// Closest face-centre pair between two nodes, returns bezier path string + endpoints.
-function edgePath(fromId, toId) {
-  const f = nodeById(fromId), t = nodeById(toId);
-  const W = NW / 2, H = NH / 2;
-  const faces = [
-    { dx: 0, dy: -H, dir: 'T' }, { dx: 0,  dy: H,  dir: 'B' },
-    { dx: -W, dy: 0, dir: 'L' }, { dx: W,  dy: 0,  dir: 'R' },
-  ];
-  let best = null, bestD = Infinity;
-  for (const ff of faces) {
-    for (const tf of faces) {
-      const d = Math.hypot((f.x+ff.dx)-(t.x+tf.dx), (f.y+ff.dy)-(t.y+tf.dy));
-      if (d < bestD) { bestD = d; best = { ff, tf }; }
-    }
+function edgePath(fromId, toId, selfSlot=0) {
+  if (fromId === toId) {
+    const n = nodeById(fromId);
+    const ox = n.x - 30 + selfSlot * 24;
+    const top = n.y - NH/2;
+    return {
+      d: `M${ox-14} ${top} C${ox-26} ${top-34} ${ox+26} ${top-34} ${ox+14} ${top}`,
+      mx: ox, my: top - 38,
+    };
   }
-  const sx = f.x + best.ff.dx, sy = f.y + best.ff.dy;
-  const ex = t.x + best.tf.dx, ey = t.y + best.tf.dy;
-  const C = 52;
-  const dirOff = { T:[0,-C], B:[0,C], L:[-C,0], R:[C,0] };
-  const [c1x,c1y] = dirOff[best.ff.dir];
-  const [c2x,c2y] = dirOff[best.tf.dir];
+  const f = nodeById(fromId), t = nodeById(toId);
+  const W = NW/2, H = NH/2;
+  const faces = [
+    {dx:0,dy:-H,dir:'T'},{dx:0,dy:H,dir:'B'},
+    {dx:-W,dy:0,dir:'L'},{dx:W,dy:0,dir:'R'},
+  ];
+  let best=null, bestD=Infinity;
+  for (const ff of faces) for (const tf of faces) {
+    const d = Math.hypot((f.x+ff.dx)-(t.x+tf.dx),(f.y+ff.dy)-(t.y+tf.dy));
+    if (d<bestD) { bestD=d; best={ff,tf}; }
+  }
+  const sx=f.x+best.ff.dx, sy=f.y+best.ff.dy;
+  const ex=t.x+best.tf.dx, ey=t.y+best.tf.dy;
+  const C=50;
+  const off = {T:[0,-C],B:[0,C],L:[-C,0],R:[C,0]};
+  const [c1x,c1y]=off[best.ff.dir], [c2x,c2y]=off[best.tf.dir];
   return {
-    d: `M${sx} ${sy} C${sx+c1x} ${sy+c1y} ${ex+c2x} ${ey+c2y} ${ex} ${ey}`,
-    mx: (sx + ex) / 2, my: (sy + ey) / 2,
+    d:`M${sx} ${sy} C${sx+c1x} ${sy+c1y} ${ex+c2x} ${ey+c2y} ${ex} ${ey}`,
+    mx:(sx+ex)/2, my:(sy+ey)/2,
   };
 }
 
-// Small loop arc above the node for self-edges.
-function selfLoopPath(nodeId, slot) {
-  const n = nodeById(nodeId);
-  const ox = n.x - 30 + slot * 22;
-  const top = n.y - NH / 2;
-  return {
-    d: `M${ox-16} ${top} C${ox-28} ${top-38} ${ox+28} ${top-38} ${ox+16} ${top}`,
-    mx: ox, my: top - 42,
-  };
-}
-
-function makeMarker(id, color, sz = 8) {
-  const m = svgEl('marker', { id, markerWidth: sz, markerHeight: sz,
-    refX: sz, refY: sz/2, orient: 'auto' });
-  const p = svgEl('path', { d: `M0,0 L0,${sz} L${sz},${sz/2}Z`, fill: color });
-  m.appendChild(p); return m;
+function makeMarker(id,color,sz=8) {
+  const m=el('marker',{id,markerWidth:sz,markerHeight:sz,refX:sz,refY:sz/2,orient:'auto'});
+  m.appendChild(el('path',{d:`M0,0 L0,${sz} L${sz},${sz/2}Z`,fill:color}));
+  return m;
 }
 
 // ── RENDER GRAPH ─────────────────────────────────────────────────────────────
 function renderGraph() {
-  // Defs
-  const defs = document.getElementById('svgDefs');
-  defs.innerHTML = '';
-  defs.appendChild(makeMarker('arr-static', 'rgba(78,203,113,0.15)', 7));
-  DATA.flows.forEach(f => defs.appendChild(makeMarker(`arr-${f.id}`, f.color, 8)));
+  svg.innerHTML='';
+  const defs=el('defs'); svg.appendChild(defs);
+  defs.appendChild(makeMarker('arr-static','rgba(255,255,255,0.08)',7));
+  FLOWS.forEach(f=>defs.appendChild(makeMarker(`arr-${f.id}`,f.color,8)));
 
-  svg.innerHTML = '';
-  svg.appendChild(defs);
+  // Column backgrounds + headers
+  const colBg=el('g'); svg.appendChild(colBg);
+  COLS.forEach((col,i) => {
+    const x=col.x-NW/2-12, w=NW+24;
+    colBg.appendChild(el('rect',{x,y:0,width:w,height:400,
+      fill: i%2===0 ? 'rgba(255,255,255,0.01)' : 'none'}));
+    colBg.appendChild(txt('text',{
+      x:col.x, y:22, 'text-anchor':'middle',
+      fill:col.color, 'font-size':'10', 'font-weight':'600',
+      'letter-spacing':'1', opacity:'0.7',
+      'font-family':'-apple-system,sans-serif',
+    }, col.label.toUpperCase()));
+  });
 
-  // Static dependency edges
-  const staticG = svgEl('g');
-  DATA.staticEdges.forEach(e => {
-    const ep = edgePath(e.from, e.to);
-    staticG.appendChild(svgEl('path', {
-      d: ep.d, fill: 'none', stroke: 'rgba(78,203,113,0.11)',
-      'stroke-width': '1.2', 'marker-end': 'url(#arr-static)',
-    }));
+  // Static edges
+  const staticG=el('g',{id:'static-edges'});
+  STATIC_EDGES.forEach(([a,b])=>{
+    const ep=edgePath(a,b);
+    staticG.appendChild(el('path',{d:ep.d,fill:'none',
+      stroke:'rgba(255,255,255,0.07)','stroke-width':'1',
+      'marker-end':'url(#arr-static)'}));
   });
   svg.appendChild(staticG);
 
-  // Flow edges layer (populated on flow select)
-  svg.appendChild(svgEl('g', { id: 'flow-layer' }));
-  svg.appendChild(svgEl('g', { id: 'label-layer' }));
+  // Flow edges (redrawn on select)
+  svg.appendChild(el('g',{id:'flow-edges'}));
+  svg.appendChild(el('g',{id:'flow-nums'}));
 
   // Nodes
-  const nodeG = svgEl('g');
-  DATA.nodes.forEach(n => {
-    const g = svgEl('g', { id: `node-${n.id}`, transform: `translate(${n.x},${n.y})` });
-    g.appendChild(svgEl('rect', {
-      id: `rect-${n.id}`,
-      x: -NW/2, y: -NH/2, width: NW, height: NH, rx: 6,
-      fill: '#101512', stroke: 'rgba(78,203,113,0.18)', 'stroke-width': '1',
-    }));
-    const lbl = svgEl('text', {
-      id: `lbl-${n.id}`, x: 0, y: -7,
-      'text-anchor': 'middle', fill: '#c8dcc8',
-      'font-size': '12', 'font-family': '"Share Tech Mono",monospace', 'font-weight': 'bold',
-    });
-    lbl.textContent = n.label;
-    g.appendChild(lbl);
-    const sub = svgEl('text', {
-      x: 0, y: 10, 'text-anchor': 'middle',
-      fill: 'rgba(78,203,113,0.35)', 'font-size': '9', 'font-family': '"Share Tech Mono",monospace',
-    });
-    sub.textContent = n.desc;
-    g.appendChild(sub);
+  const nodeG=el('g',{id:'node-layer'});
+  NODES.forEach(n=>{
+    const col=colById(n.col);
+    const g=el('g',{id:`node-${n.id}`,transform:`translate(${n.x},${n.y})`});
+    g.appendChild(el('rect',{id:`rect-${n.id}`,
+      x:-NW/2,y:-NH/2,width:NW,height:NH,rx:6,
+      fill:'#141417',stroke:'rgba(255,255,255,0.1)','stroke-width':'1'}));
+    // Top accent bar
+    g.appendChild(el('rect',{
+      x:-NW/2,y:-NH/2,width:NW,height:3,rx:3,
+      fill:col.color,opacity:'0.3',id:`bar-${n.id}`}));
+    g.appendChild(txt('text',{id:`lbl-${n.id}`,
+      x:0,y:-5,'text-anchor':'middle',fill:'#ccc',
+      'font-size':'11','font-weight':'600',
+      'font-family':'-apple-system,sans-serif'},n.label));
+    g.appendChild(txt('text',{x:0,y:10,'text-anchor':'middle',fill:'#555',
+      'font-size':'9','font-family':'-apple-system,sans-serif'},n.sub));
     nodeG.appendChild(g);
   });
   svg.appendChild(nodeG);
 }
 
-// ── FLOW RENDERING ────────────────────────────────────────────────────────────
-function renderFlow() {
-  const flowLayer  = document.getElementById('flow-layer');
-  const labelLayer = document.getElementById('label-layer');
-  flowLayer.innerHTML  = '';
-  labelLayer.innerHTML = '';
+// ── RENDER FLOW OVERLAY ───────────────────────────────────────────────────────
+function renderOverlay() {
+  const edgeLayer = document.getElementById('flow-edges');
+  const numLayer  = document.getElementById('flow-nums');
+  edgeLayer.innerHTML=''; numLayer.innerHTML='';
 
   // Reset node styles
-  DATA.nodes.forEach(n => {
-    const r = document.getElementById(`rect-${n.id}`);
-    if (r) { r.setAttribute('fill', '#101512'); r.setAttribute('stroke', 'rgba(78,203,113,0.18)'); r.setAttribute('stroke-width', '1'); }
-    const l = document.getElementById(`lbl-${n.id}`);
-    if (l) l.setAttribute('fill', '#c8dcc8');
+  NODES.forEach(n=>{
+    const r=document.getElementById(`rect-${n.id}`);
+    const l=document.getElementById(`lbl-${n.id}`);
+    const b=document.getElementById(`bar-${n.id}`);
+    if (!activeFlow) {
+      r.setAttribute('fill','#141417');
+      r.setAttribute('stroke','rgba(255,255,255,0.1)');
+      r.setAttribute('opacity','1');
+      l.setAttribute('fill','#ccc');
+      b.setAttribute('opacity','0.3');
+    } else {
+      r.setAttribute('opacity','0.22');
+      l.setAttribute('fill','#444');
+      b.setAttribute('opacity','0.08');
+    }
   });
 
   if (!activeFlow) return;
-  const f = activeFlow;
-  const steps = f.steps.slice(0, activeStep + 1);
-  const involvedNodes = new Set();
-  const selfSlots = {};
 
-  steps.forEach((step, i) => {
-    const isCurrent = i === activeStep;
-    const opacity   = isCurrent ? '1' : '0.32';
-    const sw        = isCurrent ? '2.5' : '1.5';
+  const f=activeFlow;
+  const involvedNodes=new Set();
+  selfSlotMap={};
+
+  f.steps.forEach((step,i)=>{
     involvedNodes.add(step.from);
     involvedNodes.add(step.to);
-
-    let ep;
-    if (step.from === step.to) {
-      const slot = selfSlots[step.from] ?? 0;
-      selfSlots[step.from] = slot + 1;
-      ep = selfLoopPath(step.from, slot);
-    } else {
-      ep = edgePath(step.from, step.to);
-    }
-
-    const path = svgEl('path', {
-      d: ep.d, fill: 'none', stroke: f.color,
-      'stroke-width': sw, opacity,
-      'stroke-dasharray': isCurrent ? '7 3' : 'none',
-      'marker-end': `url(#arr-${f.id})`,
-    });
-    if (isCurrent) path.setAttribute('class', 'active-edge');
-    flowLayer.appendChild(path);
-
-    // Label for current step
-    if (isCurrent) {
-      const bg = svgEl('rect', {
-        x: ep.mx - step.label.length * 3, y: ep.my - 10,
-        width: step.label.length * 6, height: 15,
-        rx: 2, fill: '#0d0f0e', opacity: '0.9',
-      });
-      const txt = svgEl('text', {
-        x: ep.mx, y: ep.my + 2,
-        'text-anchor': 'middle', fill: f.color,
-        'font-size': '9', 'font-family': '"Share Tech Mono",monospace',
-      });
-      txt.textContent = step.label;
-      labelLayer.appendChild(bg);
-      labelLayer.appendChild(txt);
-    }
   });
 
   // Highlight involved nodes
-  involvedNodes.forEach(id => {
-    const r = document.getElementById(`rect-${id}`);
-    if (r) { r.setAttribute('fill', `${f.color}16`); r.setAttribute('stroke', f.color); r.setAttribute('stroke-width', '1.5'); }
-    const l = document.getElementById(`lbl-${id}`);
-    if (l) l.setAttribute('fill', '#ffffff');
+  involvedNodes.forEach(id=>{
+    const r=document.getElementById(`rect-${id}`);
+    const l=document.getElementById(`lbl-${id}`);
+    const b=document.getElementById(`bar-${id}`);
+    r.setAttribute('fill','#1e1e24');
+    r.setAttribute('stroke',f.color);
+    r.setAttribute('stroke-width','1.5');
+    r.setAttribute('opacity','1');
+    l.setAttribute('fill','#eee');
+    b.setAttribute('opacity','0.6');
   });
 
-  // Extra highlight for current step's nodes
-  const cs = f.steps[activeStep];
-  if (cs) {
-    [cs.from, cs.to].forEach(id => {
-      const r = document.getElementById(`rect-${id}`);
-      if (r) { r.setAttribute('fill', `${f.color}28`); r.setAttribute('stroke', f.color); r.setAttribute('stroke-width', '2.2'); }
-    });
-  }
+  // Draw edges + step numbers
+  f.steps.forEach((step,i)=>{
+    const isSelf = step.from === step.to;
+    const slot = selfSlotMap[step.from+step.to] ?? 0;
+    selfSlotMap[step.from+step.to] = slot+1;
+    const ep = edgePath(step.from, step.to, slot);
+
+    const isActive = activeStep === i;
+    const dimmed   = activeStep !== null && !isActive;
+    const alpha    = dimmed ? 0.25 : 1;
+
+    // Edge path
+    const path=el('path',{d:ep.d,fill:'none',stroke:f.color,
+      'stroke-width': isActive ? '2.5' : '1.5',
+      opacity: String(alpha),
+      'marker-end':`url(#arr-${f.id})`});
+    if (isActive) {
+      path.style.animation='dash 0.5s linear infinite';
+      path.setAttribute('stroke-dasharray','7 3');
+    }
+    edgeLayer.appendChild(path);
+
+    // Step number circle
+    const nr = 11;
+    const ncol = dimmed ? '#333' : f.color;
+    const ntcol = dimmed ? '#555' : '#000';
+    const nbg=el('circle',{cx:ep.mx,cy:ep.my,r:nr,
+      fill: isActive ? f.color : '#1a1a1e',
+      stroke: dimmed ? '#333' : f.color,
+      'stroke-width':'1.5',opacity:String(alpha)});
+    const ntxt=txt('text',{x:ep.mx,y:ep.my+4,'text-anchor':'middle',
+      fill: isActive ? '#000' : (dimmed ? '#444' : f.color),
+      'font-size':'10','font-weight':'700',
+      'font-family':'-apple-system,sans-serif',
+      opacity:String(alpha)},String(i+1));
+    numLayer.appendChild(nbg);
+    numLayer.appendChild(ntxt);
+  });
 }
 
-// ── STEP PANEL ────────────────────────────────────────────────────────────────
-function renderPanel() {
-  const panel = document.getElementById('stepPanel');
+// ── RIGHT PANEL ───────────────────────────────────────────────────────────────
+function renderFlowsList() {
+  const list=document.getElementById('flowsList');
+  list.innerHTML='';
+  FLOWS.forEach(f=>{
+    const item=document.createElement('div');
+    item.className='flow-item'+(activeFlow?.id===f.id?' active':'');
+    item.style.borderLeftColor=activeFlow?.id===f.id ? f.color : 'transparent';
+    item.innerHTML=`<div class="flow-item-name">${f.name}</div>
+                    <div class="flow-item-desc">${f.desc}</div>`;
+    item.onclick=()=>selectFlow(f.id);
+    list.appendChild(item);
+  });
+  document.getElementById('clearBtn').style.display=activeFlow?'block':'none';
+}
+
+function renderStepsList() {
+  const list=document.getElementById('stepsList');
   if (!activeFlow) {
-    panel.innerHTML = '<div class="step-empty">← Выберите сценарий слева для отображения потока данных</div>';
+    list.innerHTML='<div class="steps-empty">← Выберите сценарий</div>';
     return;
   }
-  const f = activeFlow, step = f.steps[activeStep], total = f.steps.length;
-  panel.innerHTML = `
-    <div class="step-header">
-      <span class="step-flow-name" style="color:${f.color}">${f.name}</span>
-      <span class="step-counter">ШАГ&nbsp;${activeStep+1}&nbsp;/&nbsp;${total}</span>
-      <div class="step-nav">
-        <button id="btnPrev" ${activeStep===0?'disabled':''}>◀ Пред</button>
-        <button id="btnNext" ${activeStep===total-1?'disabled':''}>След ▶</button>
+  list.innerHTML='';
+  activeFlow.steps.forEach((step,i)=>{
+    const isActive=activeStep===i;
+    const item=document.createElement('div');
+    item.className='step-item'+(isActive?' active':'');
+    item.innerHTML=`
+      <div class="step-num" style="${isActive?`background:${activeFlow.color};color:#000`:''}">
+        ${i+1}
       </div>
-    </div>
-    <div class="step-label">${step.label}</div>
-    <div class="step-note">${step.note}</div>
-    <div class="step-hint">← → для навигации</div>
-  `;
-  document.getElementById('btnPrev').onclick = () => { if (activeStep > 0) { activeStep--; update(); } };
-  document.getElementById('btnNext').onclick = () => { if (activeStep < total-1) { activeStep++; update(); } };
+      <div class="step-body">
+        <div class="step-call">${step.from} → ${step.to}<br>${step.call}</div>
+        <div class="step-note">${step.note}</div>
+      </div>`;
+    item.onclick=()=>{ activeStep=isActive?null:i; renderOverlay(); renderStepsList(); };
+    list.appendChild(item);
+  });
 }
-
-function update() { renderFlow(); renderPanel(); }
 
 function selectFlow(id) {
-  activeFlow = DATA.flows.find(f => f.id === id);
-  activeStep = 0;
-  document.querySelectorAll('.flow-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.flow === id));
-  update();
+  if (activeFlow?.id===id) { activeFlow=null; activeStep=null; }
+  else { activeFlow=FLOWS.find(f=>f.id===id); activeStep=null; }
+  renderFlowsList();
+  renderStepsList();
+  renderOverlay();
 }
 
-// ── SIDEBAR ───────────────────────────────────────────────────────────────────
-function renderSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  DATA.flows.forEach(f => {
-    const btn = document.createElement('button');
-    btn.className   = 'flow-btn';
-    btn.dataset.flow = f.id;
-    btn.title       = f.desc;
-    btn.innerHTML   = `<span class="flow-dot" style="background:${f.color}"></span>${f.name}`;
-    btn.onclick     = () => selectFlow(f.id);
-    sidebar.appendChild(btn);
+// ── LEGEND ────────────────────────────────────────────────────────────────────
+function renderLegend() {
+  const leg=document.getElementById('legend');
+  COLS.forEach(c=>{
+    leg.innerHTML+=`<span class="leg">
+      <span class="leg-dot" style="background:${c.color};opacity:0.7"></span>${c.label}
+    </span>`;
   });
-
-  const legend = document.createElement('div');
-  legend.className = 'sidebar-legend';
-  legend.innerHTML = `<b>ОБОЗНАЧЕНИЯ</b>
-— — — текущий шаг<br>
-──── предыдущие шаги<br>
-░░░ зависимости (import)`;
-  sidebar.appendChild(legend);
+  leg.innerHTML+=`<span class="leg" style="margin-left:8px">
+    <span class="leg-dot" style="background:rgba(255,255,255,0.2)"></span>Зависимости (import)
+  </span>`;
 }
 
-// ── KEYBOARD ──────────────────────────────────────────────────────────────────
-document.addEventListener('keydown', e => {
+// ── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
   if (!activeFlow) return;
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+  const n=activeFlow.steps.length;
+  if (e.key==='ArrowRight'||e.key==='ArrowDown') {
     e.preventDefault();
-    if (activeStep < activeFlow.steps.length - 1) { activeStep++; update(); }
-  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    activeStep=activeStep===null?0:Math.min(activeStep+1,n-1);
+  } else if (e.key==='ArrowLeft'||e.key==='ArrowUp') {
     e.preventDefault();
-    if (activeStep > 0) { activeStep--; update(); }
-  }
+    activeStep=activeStep===null||activeStep===0?null:activeStep-1;
+  } else if (e.key==='Escape') { activeStep=null; }
+  else return;
+  renderOverlay(); renderStepsList();
 });
 
+document.getElementById('clearBtn').onclick=()=>selectFlow(activeFlow?.id);
+
+// ── CSS for edge animation ────────────────────────────────────────────────────
+const style=document.createElement('style');
+style.textContent='@keyframes dash{to{stroke-dashoffset:-18}}';
+document.head.appendChild(style);
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
+renderLegend();
 renderGraph();
-renderSidebar();
+renderFlowsList();
 </script>
 </body>
 </html>
