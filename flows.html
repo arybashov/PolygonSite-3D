@@ -295,50 +295,57 @@ function inAnyNode(x, y) {
   );
 }
 
-// Sample bezier for label position closest to t=0.5 that is outside all nodes
-function labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey) {
-  const ts = [0.5];
-  for (let d = 0.05; d <= 0.45; d += 0.05) ts.push(0.5 - d, 0.5 + d);
-  for (const t of ts) {
+// Sample bezier for label position closest to tTarget that is outside all nodes
+function labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, tTarget=0.5) {
+  const deltas = [0];
+  for (let d = 0.05; d <= 0.45; d += 0.05) deltas.push(d, -d);
+  for (const delta of deltas) {
+    const t = Math.max(0.05, Math.min(0.95, tTarget + delta));
     const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, t);
     if (!inAnyNode(x, y)) return { mx: x, my: y };
   }
-  const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, 0.5);
+  const [x, y] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, tTarget);
   return { mx: x, my: y };
 }
 
-function edgePath(fromId, toId, selfSlot=0) {
+// labelSlot/labelCount: when multiple steps share the same edge, spread their
+// circles evenly along the curve so they don't overlap.
+function edgePath(fromId, toId, selfSlot=0, labelSlot=0, labelCount=1) {
   if (fromId === toId) {
     const n = nodeById(fromId);
     const ox = n.x - 30 + selfSlot * 24;
     const top = n.y - NH/2;
+    // Self-loops stagger circles horizontally per slot
+    const lx = ox + (labelSlot - (labelCount-1)/2) * 18;
     return {
       d: `M${ox-14} ${top} C${ox-26} ${top-34} ${ox+26} ${top-34} ${ox+14} ${top}`,
-      mx: ox, my: top - 38,
+      mx: lx, my: top - 38,
     };
   }
+
+  // Spread t evenly when multiple circles share the same edge
+  const tSpread = labelCount <= 1 ? 0 : 0.4 / labelCount;
+  const tTarget = 0.5 + (labelSlot - (labelCount - 1) / 2) * tSpread;
 
   const f = nodeById(fromId), tn = nodeById(toId);
   const fIdx = COLS.findIndex(c => c.id === f.col);
   const tIdx = COLS.findIndex(c => c.id === tn.col);
   const colSpan = Math.abs(fIdx - tIdx);
 
-  // Long edges (spanning 2+ column gaps) route through the top corridor.
-  // This guarantees the midpoint circle is above all nodes.
+  // Long edges (2+ column gaps): arc through top corridor, circles on the arc
   if (colSpan >= 2) {
-    const sx = f.x,  sy = f.y  - NH/2;   // exit top face of source
-    const ex = tn.x, ey = tn.y - NH/2;   // enter top face of dest
-    // Both control points pulled up to TOP_LANE — the arc crests above all nodes
+    const sx = f.x,  sy = f.y  - NH/2;
+    const ex = tn.x, ey = tn.y - NH/2;
     const cp1x = sx, cp1y = TOP_LANE;
     const cp2x = ex, cp2y = TOP_LANE;
-    const [mx, my] = bezierAt(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, 0.5);
+    const { mx, my } = labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, tTarget);
     return {
       d: `M${sx} ${sy} C${cp1x} ${cp1y} ${cp2x} ${cp2y} ${ex} ${ey}`,
       mx, my,
     };
   }
 
-  // Short edges (same or adjacent column): normal face-pair bezier routing
+  // Short edges: normal face-pair bezier routing
   const W = NW/2, H = NH/2;
   const faces = [
     {dx:0,dy:-H,dir:'T'},{dx:0,dy:H,dir:'B'},
@@ -355,7 +362,7 @@ function edgePath(fromId, toId, selfSlot=0) {
   const off = {T:[0,-C],B:[0,C],L:[-C,0],R:[C,0]};
   const [c1x,c1y]=off[best.ff.dir], [c2x,c2y]=off[best.tf.dir];
   const cp1x=sx+c1x, cp1y=sy+c1y, cp2x=ex+c2x, cp2y=ey+c2y;
-  const { mx, my } = labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey);
+  const { mx, my } = labelOnCurve(sx, sy, cp1x, cp1y, cp2x, cp2y, ex, ey, tTarget);
   return {
     d:`M${sx} ${sy} C${cp1x} ${cp1y} ${cp2x} ${cp2y} ${ex} ${ey}`,
     mx, my,
@@ -475,12 +482,24 @@ function renderOverlay() {
     b.setAttribute('opacity','0.6');
   });
 
+  // Pre-count how many steps share each edge so circles can be spread apart
+  const edgeCounts={};
+  f.steps.forEach(step => {
+    const k=`${step.from}→${step.to}`;
+    edgeCounts[k]=(edgeCounts[k]||0)+1;
+  });
+  const edgeIdxMap={};
+
   // Draw edges + step numbers
   f.steps.forEach((step,i)=>{
     const isSelf = step.from === step.to;
     const slot = selfSlotMap[step.from+step.to] ?? 0;
     selfSlotMap[step.from+step.to] = slot+1;
-    const ep = edgePath(step.from, step.to, slot);
+    const edgeKey=`${step.from}→${step.to}`;
+    const labelCount=edgeCounts[edgeKey];
+    const labelSlot=edgeIdxMap[edgeKey]??0;
+    edgeIdxMap[edgeKey]=labelSlot+1;
+    const ep = edgePath(step.from, step.to, slot, labelSlot, labelCount);
 
     const isActive = activeStep === i;
     const dimmed   = activeStep !== null && !isActive;
